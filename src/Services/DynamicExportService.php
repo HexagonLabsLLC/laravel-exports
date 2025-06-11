@@ -146,7 +146,7 @@ class DynamicExportService
         foreach ($requestFilters as $requestFilter) {
             $columnName = $this->getFilterColumnName($requestFilter);
             // Check if this request filter has an active value
-            $possibleKeys = $this->getPossibleRequestKeys($columnName);
+            $possibleKeys = $this->getPossibleRequestKeys($columnName, $requestFilter->id);
             
             if (config('app.debug')) {
                 Log::info("Checking request filter for active value:", [
@@ -199,7 +199,7 @@ class DynamicExportService
             if ($filter->is_request) {
                 $value = null;
                 // Try different parameter name patterns
-                $possibleKeys = $this->getPossibleRequestKeys($columnName);
+                $possibleKeys = $this->getPossibleRequestKeys($columnName, $filter->id);
                 
                 foreach ($possibleKeys as $key) {
                     if (isset($this->requestData[$key])) {
@@ -525,7 +525,7 @@ class DynamicExportService
             // Skip if required from request but not provided
             if ($columnFilter->is_request && $columnFilter->is_required) {
                 $found = false;
-                $possibleKeys = $this->getPossibleRequestKeys($columnName);
+                $possibleKeys = $this->getPossibleRequestKeys($columnName, $columnFilter->id);
                 foreach ($possibleKeys as $key) {
                     if (isset($this->requestData[$key])) {
                         $found = true;
@@ -1851,15 +1851,23 @@ class DynamicExportService
     /**
      * Get possible request parameter key variations
      */
-    protected function getPossibleRequestKeys(string $columnName): array
+    protected function getPossibleRequestKeys(string $columnName, ?string $filterId = null): array
     {
-        return array_unique([
+        $keys = [
             $columnName,
             strtolower($columnName),
             Str::snake($columnName),
             str_replace('.', '_', $columnName), // Handle dots replaced with underscores
             str_replace('.', '_', Str::snake($columnName)), // Snake case with underscores
-        ]);
+        ];
+        
+        // If filter ID is provided, add variations with the filter ID
+        if ($filterId) {
+            $keys[] = $filterId; // Direct filter ID
+            $keys[] = str_replace('-', '_', $filterId); // Filter ID with underscores instead of dashes
+        }
+        
+        return array_unique($keys);
     }
 
     /**
