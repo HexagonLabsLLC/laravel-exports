@@ -146,15 +146,27 @@ class DynamicExportService
         foreach ($requestFilters as $requestFilter) {
             $columnName = $this->getFilterColumnName($requestFilter);
             // Check if this request filter has an active value
-            $possibleKeys = [
-                $columnName,
-                strtolower($columnName),
-                Str::snake($columnName),
-            ];
+            $possibleKeys = $this->getPossibleRequestKeys($columnName);
+            
+            if (config('app.debug')) {
+                Log::info("Checking request filter for active value:", [
+                    'filter_id' => $requestFilter->id,
+                    'column_name' => $columnName,
+                    'possible_keys' => $possibleKeys,
+                    'request_data_keys' => array_keys($this->requestData),
+                    'has_relation' => !empty($requestFilter->export_model_relation_id),
+                ]);
+            }
             
             foreach ($possibleKeys as $key) {
                 if (isset($this->requestData[$key])) {
                     $activeRequestParams[] = $columnName;
+                    if (config('app.debug')) {
+                        Log::info("Found active request parameter:", [
+                            'column_name' => $columnName,
+                            'matched_key' => $key,
+                        ]);
+                    }
                     break;
                 }
             }
@@ -187,15 +199,20 @@ class DynamicExportService
             if ($filter->is_request) {
                 $value = null;
                 // Try different parameter name patterns
-                $possibleKeys = [
-                    $columnName,
-                    strtolower($columnName),
-                    Str::snake($columnName),
-                ];
+                $possibleKeys = $this->getPossibleRequestKeys($columnName);
                 
                 foreach ($possibleKeys as $key) {
                     if (isset($this->requestData[$key])) {
                         $value = $this->requestData[$key];
+                        
+                        // Handle array values for operators that expect arrays
+                        if (in_array($filter->operator, ['in', 'not_in', 'between']) && is_string($value)) {
+                            if (strpos($value, ',') !== false) {
+                                $value = array_map('trim', explode(',', $value));
+                            } else {
+                                $value = [$value];
+                            }
+                        }
                         
                         if (config('app.debug')) {
                             Log::info("Request filter matched:", [
@@ -272,7 +289,19 @@ class DynamicExportService
             // Check if this is a direct column filter or relationship filter
             $isDirectColumn = isset($filter->relation->is_column) && $filter->relation->is_column;
             
-            if ($isDirectColumn) {
+            if ($isDirectColumn && str_contains($filter->relation->relation, '.')) {
+                // Smart parsing for nested column relations
+                if (config('app.debug')) {
+                    Log::info("Smart relation filter detected:", [
+                        'relation_path' => $filter->relation->relation,
+                        'is_column' => $filter->relation->is_column,
+                        'operator' => $filter->operator,
+                        'is_request' => $filter->is_request,
+                        'value' => $value,
+                    ]);
+                }
+                $this->applySmartRelationFilter($query, $filter, $value, $isOr);
+            } elseif ($isDirectColumn) {
                 // Direct column filtering - use the relation name as column name
                 $directColumn = $filter->relation->relation;
                 
@@ -495,14 +524,31 @@ class DynamicExportService
             $columnName = $this->getFilterColumnName($columnFilter);
             // Skip if required from request but not provided
             if ($columnFilter->is_request && $columnFilter->is_required) {
-                if (! isset($this->requestData[$columnName])) {
+                $found = false;
+                $possibleKeys = $this->getPossibleRequestKeys($columnName);
+                foreach ($possibleKeys as $key) {
+                    if (isset($this->requestData[$key])) {
+                        $found = true;
+                        break;
+                    }
+                }
+                if (!$found) {
                     throw new \Exception("Required column filter '{$columnName}' not provided in request");
                 }
             }
             // Get the value (from request or filter configuration)
-            $value = $columnFilter->is_request
-                ? ($this->requestData[$columnName] ?? null)
-                : $columnFilter->value;
+            if ($columnFilter->is_request) {
+                $value = null;
+                $possibleKeys = $this->getPossibleRequestKeys($columnName);
+                foreach ($possibleKeys as $key) {
+                    if (isset($this->requestData[$key])) {
+                        $value = $this->requestData[$key];
+                        break;
+                    }
+                }
+            } else {
+                $value = $columnFilter->value;
+            }
             // Skip if no value and not checking for null
             if ($value === null && ! in_array($columnFilter->operator, ['null', 'not_null'])) {
                 continue;
@@ -1800,5 +1846,92 @@ class DynamicExportService
         
 
         return array_unique($with);
+    }
+
+    /**
+     * Get possible request parameter key variations
+     */
+    protected function getPossibleRequestKeys(string $columnName): array
+    {
+        return array_unique([
+            $columnName,
+            strtolower($columnName),
+            Str::snake($columnName),
+            str_replace('.', '_', $columnName), // Handle dots replaced with underscores
+            str_replace('.', '_', Str::snake($columnName)), // Snake case with underscores
+        ]);
+    }
+
+    /**
+     * Apply smart relation filter that parses nested column relations
+     */
+    protected function applySmartRelationFilter(Builder $query, ExportFilter $filter, $value, bool $isOr): void
+    {
+        $relationPath = $filter->relation->relation;
+        $segments = explode('.', $relationPath);
+        
+        // Since is_column = true, last segment is the column
+        $column = array_pop($segments);
+        $relation = implode('.', $segments);
+        
+        if (config('app.debug')) {
+            Log::info("Applying smart relation filter:", [
+                'original_path' => $relationPath,
+                'parsed_relation' => $relation,
+                'parsed_column' => $column,
+                'operator' => $filter->operator,
+                'value' => $value,
+            ]);
+        }
+        
+        // Special handling for 'in' and 'not_in' operators with nested relations
+        if (in_array($filter->operator, ['in', 'not_in']) && str_contains($relation, '.')) {
+            $this->applyNestedWhereHas($query, $relation, $column, $filter->operator, $value, $isOr);
+        } else {
+            // Simple single-level relation or operators that work fine with whereRelation
+            $method = $isOr ? 'orWhereHas' : 'whereHas';
+            $query->$method($relation, function($q) use ($column, $filter, $value) {
+                $this->applyOperator($q, $column, $filter->operator, $value, false);
+            });
+        }
+    }
+
+    /**
+     * Apply nested whereHas for operators that need it (like 'in' with nested relations)
+     */
+    protected function applyNestedWhereHas(Builder $query, string $relationPath, string $column, string $operator, $value, bool $isOr = false): void
+    {
+        $relations = explode('.', $relationPath);
+        $method = $isOr ? 'orWhereHas' : 'whereHas';
+        
+        if (config('app.debug')) {
+            Log::info("Applying nested whereHas:", [
+                'relations' => $relations,
+                'column' => $column,
+                'operator' => $operator,
+                'value' => $value,
+            ]);
+        }
+        
+        // Build nested whereHas
+        $query->$method(array_shift($relations), function ($q) use ($relations, $column, $operator, $value) {
+            $this->buildNestedQuery($q, $relations, $column, $operator, $value);
+        });
+    }
+
+    /**
+     * Recursively build nested whereHas queries
+     */
+    protected function buildNestedQuery(Builder $query, array $remainingRelations, string $column, string $operator, $value): void
+    {
+        if (empty($remainingRelations)) {
+            // We've reached the final level, apply the operator
+            $this->applyOperator($query, $column, $operator, $value, false);
+        } else {
+            // Continue nesting
+            $query->whereHas(array_shift($remainingRelations), function ($q) use ($remainingRelations, $column, $operator, $value) {
+                $this->buildNestedQuery($q, $remainingRelations, $column, $operator, $value);
+            });
+        }
     }
 }
