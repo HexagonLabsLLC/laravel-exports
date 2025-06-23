@@ -7,7 +7,7 @@ A powerful, database-driven export system for Laravel applications that provides
 - 📊 **Database-Driven Configuration** - Define exports through database records, not code
 - 🔍 **Dynamic Model Discovery** - Auto-import Eloquent models and their relationships with proper validation
 - 🚀 **Advanced Filtering** - Static filters, request-based filters, and collection filters with relation operators
-- 🔗 **Nested Relationship Support** - Export deeply nested data (e.g., `workItem.workOrder.customer.contact.org_name`)
+- 🔗 **Nested Relationship Support** - Export deeply nested data
 - 🎯 **Collection Filtering** - Filter related collections by specific criteria (e.g., tags by category)
 - ⚡ **Transformation Functions** - 22+ built-in functions for formatting dates, strings, numbers, etc.
 - 📈 **Aggregations** - Sum, count, average, min, max on collections
@@ -27,7 +27,7 @@ composer require hexlabs/laravel-exports
 
 ```bash
 # Publish configuration
-php artisan vendor:publish --provider="Hexlabs\LaravelExports\LaravelExportsServiceProvider"
+php artisan vendor:publish --provider="HexagonLabsLLC\LaravelExports\LaravelExportsServiceProvider"
 
 # Run migrations
 php artisan migrate
@@ -42,8 +42,8 @@ php artisan export:seed-functions
 ### Basic Usage
 
 ```php
-use Hexlabs\LaravelExports\Models\{ExportModel, ExportLayout, ExportColumn};
-use Hexlabs\LaravelExports\Services\DynamicExportService;
+use HexagonLabsLLC\LaravelExports\Models\{ExportModel, ExportLayout, ExportColumn};
+use HexagonLabsLLC\LaravelExports\Services\DynamicExportService;
 
 // 1. Create an export layout
 $userModel = ExportModel::where('title', 'User')->first();
@@ -277,13 +277,3 @@ APP_DEBUG=true
 ## License
 
 The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
-
-## Recent Improvements
-
-- ✅ Fixed nested relation path resolution (`workItem.workOrder.customer.name`)
-- ✅ Enhanced eager loading for optimal performance  
-- ✅ Implemented collection filtering with relation operators
-- ✅ Added comprehensive validation and debugging
-- ✅ Separated layout filters from column filters architecturally
-- ✅ Support for deeply nested relationships
-- ✅ Automatic intermediate relation loading
