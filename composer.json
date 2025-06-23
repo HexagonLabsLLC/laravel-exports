@@ -1,5 +1,5 @@
 {
-    "name": "hexlabs/laravel-exports",
+    "name": "hexagonlabsllc/laravel-exports",
     "description": "Comprehensive export feature that utilizes Laravel's model backbone to create customizable exports.",
     "type": "library",
     "license": "GPL",
@@ -22,21 +22,21 @@
     },
     "autoload": {
         "psr-4": {
-            "Hexlabs\\LaravelExports\\": "src/"
+            "HexagonLabsLLC\\LaravelExports\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Hexlabs\\LaravelExports\\Tests\\": "tests/"
+            "HexagonLabsLLC\\LaravelExports\\Tests\\": "tests/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "Hexlabs\\LaravelExports\\LaravelExportsServiceProvider"
+                "HexagonLabsLLC\\LaravelExports\\LaravelExportsServiceProvider"
             ],
             "aliases": {
-                "LaravelExports": "Hexlabs\\LaravelExports\\Facades\\LaravelExports"
+                "LaravelExports": "HexagonLabsLLC\\LaravelExports\\Facades\\LaravelExports"
             }
         }
     },
