@@ -536,19 +536,19 @@ enum OperatorType: string
 return [
     // Model class mappings
     'models' => [
-        'export_model' => \Hexlabs\LaravelExports\Models\ExportModel::class,
-        'export_layout' => \Hexlabs\LaravelExports\Models\ExportLayout::class,
-        'export_column' => \Hexlabs\LaravelExports\Models\ExportColumn::class,
-        'export_filter' => \Hexlabs\LaravelExports\Models\ExportFilter::class,
-        'export_sort' => \Hexlabs\LaravelExports\Models\ExportSort::class,
-        'export_function' => \Hexlabs\LaravelExports\Models\ExportFunction::class,
-        'export_model_relation' => \Hexlabs\LaravelExports\Models\ExportModelRelation::class,
+        'export_model' => \HexagonLabsLLC\LaravelExports\Models\ExportModel::class,
+        'export_layout' => \HexagonLabsLLC\LaravelExports\Models\ExportLayout::class,
+        'export_column' => \HexagonLabsLLC\LaravelExports\Models\ExportColumn::class,
+        'export_filter' => \HexagonLabsLLC\LaravelExports\Models\ExportFilter::class,
+        'export_sort' => \HexagonLabsLLC\LaravelExports\Models\ExportSort::class,
+        'export_function' => \HexagonLabsLLC\LaravelExports\Models\ExportFunction::class,
+        'export_model_relation' => \HexagonLabsLLC\LaravelExports\Models\ExportModelRelation::class,
     ],
     
     // Export handler mappings
     'handlers' => [
-        'csv' => \Hexlabs\LaravelExports\Exports\Handlers\CsvExportHandler::class,
-        'json' => \Hexlabs\LaravelExports\Exports\Handlers\JsonExportHandler::class,
+        'csv' => \HexagonLabsLLC\LaravelExports\Exports\Handlers\CsvExportHandler::class,
+        'json' => \HexagonLabsLLC\LaravelExports\Exports\Handlers\JsonExportHandler::class,
     ],
 ];
 ```

@@ -1,11 +1,11 @@
 <?php
 
-namespace Hexlabs\LaravelExports\Exports;
+namespace HexagonLabsLLC\LaravelExports\Exports;
 
-use Hexlabs\LaravelExports\Exports\Handlers\CsvExportHandler;
-use Hexlabs\LaravelExports\Exports\Handlers\ExportHandler;
-use Hexlabs\LaravelExports\Exports\Handlers\JsonExportHandler;
-use Hexlabs\LaravelExports\Models\ExportLayout;
+use HexagonLabsLLC\LaravelExports\Exports\Handlers\CsvExportHandler;
+use HexagonLabsLLC\LaravelExports\Exports\Handlers\ExportHandler;
+use HexagonLabsLLC\LaravelExports\Exports\Handlers\JsonExportHandler;
+use HexagonLabsLLC\LaravelExports\Models\ExportLayout;
 
 class ExportFactory
 {

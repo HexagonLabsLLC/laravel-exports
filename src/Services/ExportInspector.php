@@ -1,8 +1,8 @@
 <?php
 
-namespace Hexlabs\LaravelExports\Services;
+namespace HexagonLabsLLC\LaravelExports\Services;
 
-use Hexlabs\LaravelExports\Helpers\ModelRelationInspector;
+use HexagonLabsLLC\LaravelExports\Helpers\ModelRelationInspector;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\DB;
 use ReflectionClass;

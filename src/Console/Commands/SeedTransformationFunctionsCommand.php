@@ -1,9 +1,9 @@
 <?php
 
-namespace Hexlabs\LaravelExports\Console\Commands;
+namespace HexagonLabsLLC\LaravelExports\Console\Commands;
 
-use Hexlabs\LaravelExports\Models\ExportFunction;
-use Hexlabs\LaravelExports\Services\TransformationFunctions;
+use HexagonLabsLLC\LaravelExports\Models\ExportFunction;
+use HexagonLabsLLC\LaravelExports\Services\TransformationFunctions;
 use Illuminate\Console\Command;
 
 class SeedTransformationFunctionsCommand extends Command

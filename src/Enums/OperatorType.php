@@ -1,6 +1,6 @@
 <?php
 
-namespace Hexlabs\LaravelExports\Enums;
+namespace HexagonLabsLLC\LaravelExports\Enums;
 
 use Illuminate\Database\Query\Builder;
 use ReflectionMethod;

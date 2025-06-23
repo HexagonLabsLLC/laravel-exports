@@ -25,7 +25,7 @@ composer require hexlabs/laravel-exports
 ### Publish Configuration
 
 ```bash
-php artisan vendor:publish --provider="Hexlabs\LaravelExports\LaravelExportsServiceProvider" --tag="config"
+php artisan vendor:publish --provider="HexagonLabsLLC\LaravelExports\LaravelExportsServiceProvider" --tag="config"
 ```
 
 ### Run Migrations
@@ -90,8 +90,8 @@ php artisan export:import-models --filter=*User* --deep
 ### Example: User Export Layout
 
 ```php
-use Hexlabs\LaravelExports\Models\ExportModel;
-use Hexlabs\LaravelExports\Models\ExportLayout;
+use HexagonLabsLLC\LaravelExports\Models\ExportModel;
+use HexagonLabsLLC\LaravelExports\Models\ExportLayout;
 
 // Get the User model
 $userModel = ExportModel::where('title', 'User')->first();
@@ -110,7 +110,7 @@ $layout = ExportLayout::create([
 ### Working with Model Relations
 
 ```php
-use Hexlabs\LaravelExports\Models\ExportModelRelation;
+use HexagonLabsLLC\LaravelExports\Models\ExportModelRelation;
 
 // Find nested relationships using whereNested scope
 $orderCustomerRelation = ExportModelRelation::where('export_model_id', $orderModel->id)
@@ -130,7 +130,7 @@ $deepRelation = ExportModelRelation::where('export_model_id', $laborPayModel->id
 ### Basic Columns
 
 ```php
-use Hexlabs\LaravelExports\Models\ExportColumn;
+use HexagonLabsLLC\LaravelExports\Models\ExportColumn;
 
 // Direct model attributes
 ExportColumn::create([
@@ -182,7 +182,7 @@ ExportColumn::create([
 ### Columns with Transformation Functions
 
 ```php
-use Hexlabs\LaravelExports\Models\ExportFunction;
+use HexagonLabsLLC\LaravelExports\Models\ExportFunction;
 
 // Get transformation functions
 $formatDate = ExportFunction::where('name', 'Format Date')->first();
@@ -245,7 +245,7 @@ ExportColumn::create([
 ### Static Filters
 
 ```php
-use Hexlabs\LaravelExports\Models\ExportFilter;
+use HexagonLabsLLC\LaravelExports\Models\ExportFilter;
 
 // Filter active users only
 ExportFilter::create([
@@ -325,7 +325,7 @@ ExportFilter::create([
 ### Basic Sorting
 
 ```php
-use Hexlabs\LaravelExports\Models\ExportSort;
+use HexagonLabsLLC\LaravelExports\Models\ExportSort;
 
 // Sort by created date (newest first)
 ExportSort::create([
@@ -448,7 +448,7 @@ ExportColumn::create([
 ### Basic Export
 
 ```php
-use Hexlabs\LaravelExports\Services\DynamicExportService;
+use HexagonLabsLLC\LaravelExports\Services\DynamicExportService;
 
 $exportService = new DynamicExportService();
 

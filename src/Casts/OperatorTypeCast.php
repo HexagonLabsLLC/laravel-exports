@@ -1,8 +1,8 @@
 <?php
 
-namespace Hexlabs\LaravelExports\Casts;
+namespace HexagonLabsLLC\LaravelExports\Casts;
 
-use Hexlabs\LaravelExports\Enums\OperatorType;
+use HexagonLabsLLC\LaravelExports\Enums\OperatorType;
 use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
 
 class OperatorTypeCast implements CastsAttributes

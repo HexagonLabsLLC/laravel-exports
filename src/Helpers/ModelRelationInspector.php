@@ -1,6 +1,6 @@
 <?php
 
-namespace Hexlabs\LaravelExports\Helpers;
+namespace HexagonLabsLLC\LaravelExports\Helpers;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;

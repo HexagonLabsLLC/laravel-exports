@@ -1,6 +1,6 @@
 <?php
 
-namespace Hexlabs\LaravelExports;
+namespace HexagonLabsLLC\LaravelExports;
 
 use Illuminate\Support\ServiceProvider;
 

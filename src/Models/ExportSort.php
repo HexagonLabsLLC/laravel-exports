@@ -1,6 +1,6 @@
 <?php
 
-namespace Hexlabs\LaravelExports\Models;
+namespace HexagonLabsLLC\LaravelExports\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;

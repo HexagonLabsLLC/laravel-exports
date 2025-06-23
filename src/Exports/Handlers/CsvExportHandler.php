@@ -1,6 +1,6 @@
 <?php
 
-namespace Hexlabs\LaravelExports\Exports\Handlers;
+namespace HexagonLabsLLC\LaravelExports\Exports\Handlers;
 
 use Illuminate\Http\Response;
 use Illuminate\Support\Collection;

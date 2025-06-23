@@ -1,10 +1,10 @@
 <?php
 
-namespace Hexlabs\LaravelExports\Console\Commands;
+namespace HexagonLabsLLC\LaravelExports\Console\Commands;
 
-use Hexlabs\LaravelExports\Helpers\ModelRelationInspector;
-use Hexlabs\LaravelExports\Models\ExportModel;
-use Hexlabs\LaravelExports\Models\ExportModelRelation;
+use HexagonLabsLLC\LaravelExports\Helpers\ModelRelationInspector;
+use HexagonLabsLLC\LaravelExports\Models\ExportModel;
+use HexagonLabsLLC\LaravelExports\Models\ExportModelRelation;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;

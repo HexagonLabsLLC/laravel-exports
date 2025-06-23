@@ -1,8 +1,8 @@
 <?php
 
-namespace Hexlabs\LaravelExports\Services;
+namespace HexagonLabsLLC\LaravelExports\Services;
 
-use Hexlabs\LaravelExports\{
+use HexagonLabsLLC\LaravelExports\{
     Enums\OperatorType,
     Models\ExportSort,
     Models\ExportModel,

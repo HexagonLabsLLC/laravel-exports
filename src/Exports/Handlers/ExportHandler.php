@@ -1,8 +1,8 @@
 <?php
 
-namespace Hexlabs\LaravelExports\Exports\Handlers;
+namespace HexagonLabsLLC\LaravelExports\Exports\Handlers;
 
-use Hexlabs\LaravelExports\Models\ExportLayout;
+use HexagonLabsLLC\LaravelExports\Models\ExportLayout;
 use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
 use Symfony\Component\HttpFoundation\StreamedResponse;

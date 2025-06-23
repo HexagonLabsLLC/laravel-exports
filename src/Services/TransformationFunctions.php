@@ -1,6 +1,6 @@
 <?php
 
-namespace Hexlabs\LaravelExports\Services;
+namespace HexagonLabsLLC\LaravelExports\Services;
 
 use Carbon\Carbon;
 use Illuminate\Support\Str;
@@ -16,7 +16,7 @@ class TransformationFunctions
             // Date/Time Functions
             [
                 'name' => 'Format Date',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::formatDate',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::formatDate',
                 'parameter_count' => 2,
                 'value_parameter_index' => 0,
                 'metadata' => [
@@ -27,7 +27,7 @@ class TransformationFunctions
             ],
             [
                 'name' => 'Format Date Human',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::formatDateHuman',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::formatDateHuman',
                 'parameter_count' => 1,
                 'value_parameter_index' => 0,
                 'metadata' => [
@@ -38,7 +38,7 @@ class TransformationFunctions
             ],
             [
                 'name' => 'Date Difference',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::dateDifference',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::dateDifference',
                 'parameter_count' => 3,
                 'value_parameter_index' => 0,
                 'metadata' => [
@@ -51,7 +51,7 @@ class TransformationFunctions
             // String Functions
             [
                 'name' => 'Uppercase',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::uppercase',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::uppercase',
                 'parameter_count' => 1,
                 'value_parameter_index' => 0,
                 'metadata' => [
@@ -62,7 +62,7 @@ class TransformationFunctions
             ],
             [
                 'name' => 'Lowercase',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::lowercase',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::lowercase',
                 'parameter_count' => 1,
                 'value_parameter_index' => 0,
                 'metadata' => [
@@ -73,7 +73,7 @@ class TransformationFunctions
             ],
             [
                 'name' => 'Title Case',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::titleCase',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::titleCase',
                 'parameter_count' => 1,
                 'value_parameter_index' => 0,
                 'metadata' => [
@@ -84,7 +84,7 @@ class TransformationFunctions
             ],
             [
                 'name' => 'Truncate',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::truncate',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::truncate',
                 'parameter_count' => 3,
                 'value_parameter_index' => 0,
                 'metadata' => [
@@ -95,7 +95,7 @@ class TransformationFunctions
             ],
             [
                 'name' => 'Slug',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::slug',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::slug',
                 'parameter_count' => 2,
                 'value_parameter_index' => 0,
                 'metadata' => [
@@ -106,7 +106,7 @@ class TransformationFunctions
             ],
             [
                 'name' => 'Replace',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::replace',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::replace',
                 'parameter_count' => 3,
                 'value_parameter_index' => 0,
                 'metadata' => [
@@ -117,7 +117,7 @@ class TransformationFunctions
             ],
             [
                 'name' => 'Extract',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::extract',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::extract',
                 'parameter_count' => 2,
                 'value_parameter_index' => 0,
                 'metadata' => [
@@ -130,7 +130,7 @@ class TransformationFunctions
             // Number Functions
             [
                 'name' => 'Format Number',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::formatNumber',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::formatNumber',
                 'parameter_count' => 3,
                 'value_parameter_index' => 0,
                 'metadata' => [
@@ -141,7 +141,7 @@ class TransformationFunctions
             ],
             [
                 'name' => 'Format Currency',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::formatCurrency',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::formatCurrency',
                 'parameter_count' => 3,
                 'value_parameter_index' => 0,
                 'metadata' => [
@@ -152,7 +152,7 @@ class TransformationFunctions
             ],
             [
                 'name' => 'Round',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::round',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::round',
                 'parameter_count' => 2,
                 'value_parameter_index' => 0,
                 'metadata' => [
@@ -163,7 +163,7 @@ class TransformationFunctions
             ],
             [
                 'name' => 'Percentage',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::percentage',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::percentage',
                 'parameter_count' => 2,
                 'value_parameter_index' => 0,
                 'metadata' => [
@@ -176,7 +176,7 @@ class TransformationFunctions
             // Boolean Functions
             [
                 'name' => 'Boolean Text',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::booleanText',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::booleanText',
                 'parameter_count' => 3,
                 'value_parameter_index' => 0,
                 'metadata' => [
@@ -189,7 +189,7 @@ class TransformationFunctions
             // Array/JSON Functions
             [
                 'name' => 'JSON Extract',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::jsonExtract',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::jsonExtract',
                 'parameter_count' => 2,
                 'value_parameter_index' => 0,
                 'metadata' => [
@@ -200,7 +200,7 @@ class TransformationFunctions
             ],
             [
                 'name' => 'Array Join',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::arrayJoin',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::arrayJoin',
                 'parameter_count' => 2,
                 'value_parameter_index' => 0,
                 'metadata' => [
@@ -211,7 +211,7 @@ class TransformationFunctions
             ],
             [
                 'name' => 'Array Count',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::arrayCount',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::arrayCount',
                 'parameter_count' => 1,
                 'value_parameter_index' => 0,
                 'metadata' => [
@@ -224,7 +224,7 @@ class TransformationFunctions
             // Utility Functions
             [
                 'name' => 'Default Value',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::defaultValue',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::defaultValue',
                 'parameter_count' => 2,
                 'value_parameter_index' => 0,
                 'metadata' => [
@@ -235,7 +235,7 @@ class TransformationFunctions
             ],
             [
                 'name' => 'Concatenate',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::concatenate',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::concatenate',
                 'parameter_count' => 3,
                 'value_parameter_index' => 0,
                 'metadata' => [
@@ -246,7 +246,7 @@ class TransformationFunctions
             ],
             [
                 'name' => 'Hash',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::hash',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::hash',
                 'parameter_count' => 2,
                 'value_parameter_index' => 0,
                 'metadata' => [
@@ -257,7 +257,7 @@ class TransformationFunctions
             ],
             [
                 'name' => 'Mask',
-                'callable' => 'Hexlabs\LaravelExports\Services\TransformationFunctions::mask',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::mask',
                 'parameter_count' => 3,
                 'value_parameter_index' => 0,
                 'metadata' => [
