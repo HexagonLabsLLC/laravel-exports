@@ -2,7 +2,7 @@
     "name": "hexagonlabsllc/laravel-exports",
     "description": "Comprehensive export feature that utilizes Laravel's model backbone to create customizable exports.",
     "type": "library",
-    "license": "GPL",
+    "license": "MIT",
     "require": {
         "php": "^8.1",
         "illuminate/support": "^12.12",
@@ -43,10 +43,11 @@
     "authors": [
         {
             "name": "Robert",
-            "email": "robert.klitsch97@gmail.com"
+            "email": "rklitsch@hexlabs.ai",
+            "role": "Developer"
         }
     ],
-    "minimum-stability": "dev",
+    "homepage": "https://github.com/HexagonLabsLLC/laravel-exports",
     "prefer-stable": true,
     "config": {
         "allow-plugins": {
