@@ -15,12 +15,16 @@ A powerful, database-driven export system for Laravel applications that provides
 - 📝 **Multiple Formats** - CSV and JSON out of the box, extensible for more
 - 🐛 **Debug-Ready** - Comprehensive validation and debugging capabilities
 
+## Documentation
+- [API Reference](docs/api-reference.md)
+- [Usage Examples](docs/usage-examples.md)
+
 ## Quick Start
 
 ### Installation
 
 ```bash
-composer require hexlabs/laravel-exports
+composer require hexagonlabsllc/laravel-exports
 ```
 
 ### Setup
