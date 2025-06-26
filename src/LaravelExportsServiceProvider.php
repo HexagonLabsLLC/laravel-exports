@@ -40,7 +40,6 @@ class LaravelExportsServiceProvider extends ServiceProvider
             $this->commands([
                 Console\Commands\ImportModelsCommand::class,
                 Console\Commands\SeedTransformationFunctionsCommand::class,
-                Console\Commands\TestDatabaseCommand::class,
             ]);
         }
     }
