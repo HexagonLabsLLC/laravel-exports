@@ -2,29 +2,21 @@
 
 namespace HexagonLabsLLC\LaravelExports\Services;
 
-use HexagonLabsLLC\LaravelExports\{
-    Enums\OperatorType,
-    Models\ExportSort,
-    Models\ExportModel,
-    Models\ExportColumn,
-    Models\ExportFilter,
-    Models\ExportLayout,
-    Models\ExportModelRelation,
-    Exports\ExportFactory,
-    Helpers\ModelRelationInspector,
-};
-use Illuminate\Database\Eloquent\{
-    Builder,
-    Model
-};
-
-use Illuminate\Support\{
-    Str,
-    Collection,
-    Facades\DB,
-    Facades\Log,
-};
-
+use HexagonLabsLLC\LaravelExports\Enums\OperatorType;
+use HexagonLabsLLC\LaravelExports\Exports\ExportFactory;
+use HexagonLabsLLC\LaravelExports\Helpers\ModelRelationInspector;
+use HexagonLabsLLC\LaravelExports\Models\ExportColumn;
+use HexagonLabsLLC\LaravelExports\Models\ExportFilter;
+use HexagonLabsLLC\LaravelExports\Models\ExportLayout;
+use HexagonLabsLLC\LaravelExports\Models\ExportModel;
+use HexagonLabsLLC\LaravelExports\Models\ExportModelRelation;
+use HexagonLabsLLC\LaravelExports\Models\ExportSort;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DynamicExportService
@@ -48,7 +40,7 @@ class DynamicExportService
     public function __construct()
     {
         $this->initializeCollections();
-        $this->inspector = new ModelRelationInspector();
+        $this->inspector = new ModelRelationInspector;
     }
 
     protected function initializeCollections(): void
@@ -76,6 +68,7 @@ class DynamicExportService
         $query = $this->applySorts($query);
         // Execute query and get results
         $results = $query->get();
+
         // Process results according to column configuration
         return $this->processResults($results);
     }
@@ -108,7 +101,7 @@ class DynamicExportService
             ->with(['relation'])
             ->whereNotIn('id', $columnFilterIds)
             ->get();
-        
+
         $this->sorts = $layout->sorts()
             ->with(['modelRelation'])
             ->orderBy('priority')
@@ -147,22 +140,22 @@ class DynamicExportService
             $columnName = $this->getFilterColumnName($requestFilter);
             // Check if this request filter has an active value
             $possibleKeys = $this->getPossibleRequestKeys($columnName, $requestFilter->id);
-            
+
             if (config('app.debug')) {
-                Log::info("Checking request filter for active value:", [
+                Log::info('Checking request filter for active value:', [
                     'filter_id' => $requestFilter->id,
                     'column_name' => $columnName,
                     'possible_keys' => $possibleKeys,
                     'request_data_keys' => array_keys($this->requestData),
-                    'has_relation' => !empty($requestFilter->export_model_relation_id),
+                    'has_relation' => ! empty($requestFilter->export_model_relation_id),
                 ]);
             }
-            
+
             foreach ($possibleKeys as $key) {
                 if (isset($this->requestData[$key])) {
                     $activeRequestParams[] = $columnName;
                     if (config('app.debug')) {
-                        Log::info("Found active request parameter:", [
+                        Log::info('Found active request parameter:', [
                             'column_name' => $columnName,
                             'matched_key' => $key,
                         ]);
@@ -171,9 +164,9 @@ class DynamicExportService
                 }
             }
         }
-        
+
         if (config('app.debug')) {
-            Log::info("Filter conflict resolution:", [
+            Log::info('Filter conflict resolution:', [
                 'total_filters' => $this->filters->count(),
                 'request_filters' => $requestFilters->count(),
                 'static_filters' => $staticFilters->count(),
@@ -185,14 +178,15 @@ class DynamicExportService
             // Get the column name from the relation
             $columnName = $this->getFilterColumnName($filter);
             // Skip static filters if there's an active request filter for the same parameter
-            if (!$filter->is_request && in_array($columnName, $activeRequestParams)) {
+            if (! $filter->is_request && in_array($columnName, $activeRequestParams)) {
                 if (config('app.debug')) {
-                    Log::info("Skipping static filter due to active request filter:", [
+                    Log::info('Skipping static filter due to active request filter:', [
                         'static_filter_id' => $filter->id,
                         'column_name' => $columnName,
                         'reason' => 'request_filter_takes_priority',
                     ]);
                 }
+
                 return; // Skip this static filter
             }
             // For request filters, try multiple ways to get the parameter value
@@ -200,11 +194,11 @@ class DynamicExportService
                 $value = null;
                 // Try different parameter name patterns
                 $possibleKeys = $this->getPossibleRequestKeys($columnName, $filter->id);
-                
+
                 foreach ($possibleKeys as $key) {
                     if (isset($this->requestData[$key])) {
                         $value = $this->requestData[$key];
-                        
+
                         // Handle array values for operators that expect arrays
                         if (in_array($filter->operator, ['in', 'not_in', 'between']) && is_string($value)) {
                             if (strpos($value, ',') !== false) {
@@ -213,9 +207,9 @@ class DynamicExportService
                                 $value = [$value];
                             }
                         }
-                        
+
                         if (config('app.debug')) {
-                            Log::info("Request filter matched:", [
+                            Log::info('Request filter matched:', [
                                 'filter_column' => $columnName,
                                 'matched_key' => $key,
                                 'value' => $value,
@@ -239,7 +233,7 @@ class DynamicExportService
             }
 
             if (config('app.debug')) {
-                Log::info("Applying filter:", [
+                Log::info('Applying filter:', [
                     'filter_type' => $filter->is_request ? 'request' : 'static',
                     'column_name' => $columnName,
                     'operator' => $filter->operator,
@@ -266,13 +260,13 @@ class DynamicExportService
         $columnName = $this->getFilterColumnName($filter);
 
         if (config('app.debug')) {
-            Log::info("Applying individual filter:", [
+            Log::info('Applying individual filter:', [
                 'filter_id' => $filter->id,
                 'is_request' => $filter->is_request,
                 'operator' => $filter->operator,
                 'column_name' => $columnName,
                 'value' => $value,
-                'has_relation' => !empty($filter->export_model_relation_id),
+                'has_relation' => ! empty($filter->export_model_relation_id),
                 'relation_path' => $filter->relation ? $filter->relation->relation : null,
                 'logical_operator' => $filter->logical_operator,
             ]);
@@ -282,17 +276,17 @@ class DynamicExportService
             // For relation operator, the value structure is different
             // It expects [relation, column, operator, value]
             if (config('app.debug')) {
-                Log::info("Applying relation operator filter");
+                Log::info('Applying relation operator filter');
             }
             $this->applyOperator($query, $columnName, $filter->operator, $value, $isOr);
         } elseif ($filter->export_model_relation_id && $filter->relation) {
             // Check if this is a direct column filter or relationship filter
             $isDirectColumn = isset($filter->relation->is_column) && $filter->relation->is_column;
-            
+
             if ($isDirectColumn && str_contains($filter->relation->relation, '.')) {
                 // Smart parsing for nested column relations
                 if (config('app.debug')) {
-                    Log::info("Smart relation filter detected:", [
+                    Log::info('Smart relation filter detected:', [
                         'relation_path' => $filter->relation->relation,
                         'is_column' => $filter->relation->is_column,
                         'operator' => $filter->operator,
@@ -304,9 +298,9 @@ class DynamicExportService
             } elseif ($isDirectColumn) {
                 // Direct column filtering - use the relation name as column name
                 $directColumn = $filter->relation->relation;
-                
+
                 if (config('app.debug')) {
-                    Log::info("Applying direct column filter:", [
+                    Log::info('Applying direct column filter:', [
                         'column' => $directColumn,
                         'operator' => $filter->operator,
                         'value' => $value,
@@ -314,7 +308,7 @@ class DynamicExportService
                         'is_column_flag' => true,
                     ]);
                 }
-                
+
                 $this->applyOperator($query, $directColumn, $filter->operator, $value, $isOr);
             } else {
                 // Relationship filtering - use whereHas
@@ -322,7 +316,7 @@ class DynamicExportService
                 $column = $filter->relation->column ?? $columnName;
 
                 if (config('app.debug')) {
-                    Log::info("Applying relationship filter:", [
+                    Log::info('Applying relationship filter:', [
                         'relation' => $relation,
                         'column' => $column,
                         'method' => $isOr ? 'orWhereHas' : 'whereHas',
@@ -339,7 +333,7 @@ class DynamicExportService
         } else {
             // Direct column filter on main model
             if (config('app.debug')) {
-                Log::info("Applying direct column filter:", [
+                Log::info('Applying direct column filter:', [
                     'column' => $columnName,
                     'operator' => $filter->operator,
                     'value' => $value,
@@ -351,7 +345,7 @@ class DynamicExportService
         }
         // Log the resulting query for debugging
         if (config('app.debug')) {
-            Log::info("Query after filter application:", [
+            Log::info('Query after filter application:', [
                 'sql' => $query->toSql(),
                 'bindings' => $query->getBindings(),
             ]);
@@ -373,27 +367,27 @@ class DynamicExportService
         if ($filter->is_request && $filter->export_model_relation_id && $filter->relation) {
             // Check if this is a direct column reference
             $isDirectColumn = isset($filter->relation->is_column) && $filter->relation->is_column;
-            
+
             if ($isDirectColumn) {
                 // For direct columns, use the relation field as the column name
                 $columnName = $filter->relation->relation;
-                
+
                 if (config('app.debug')) {
-                    Log::info("Using direct column for request filter:", [
+                    Log::info('Using direct column for request filter:', [
                         'filter_id' => $filter->id,
                         'relation_id' => $filter->export_model_relation_id,
                         'column_name' => $columnName,
                         'is_column' => true,
                     ]);
                 }
-                
+
                 return $columnName;
             } else {
                 // For relationships, use existing logic
                 $relationColumn = $filter->relation->column ?? $filter->relation->relation;
-                
+
                 if (config('app.debug')) {
-                    Log::info("Using relation-configured column for request filter:", [
+                    Log::info('Using relation-configured column for request filter:', [
                         'filter_id' => $filter->id,
                         'relation_id' => $filter->export_model_relation_id,
                         'column_name' => $relationColumn,
@@ -401,7 +395,7 @@ class DynamicExportService
                         'is_column' => false,
                     ]);
                 }
-                
+
                 return $relationColumn;
             }
         }
@@ -421,7 +415,7 @@ class DynamicExportService
                 $relation = $this->exportModel->relations()
                     ->where('column', '!=', null)
                     ->first();
-                
+
                 if ($relation) {
                     return $relation->column;
                 }
@@ -431,6 +425,7 @@ class DynamicExportService
                 $modelClass = $this->exportModel->model;
                 if (class_exists($modelClass)) {
                     $instance = new $modelClass;
+
                     return $instance->getKeyName();
                 }
             }
@@ -442,6 +437,7 @@ class DynamicExportService
                 return $value['column'];
             }
         }
+
         // Otherwise, fallback to a default column name
         return 'id';
     }
@@ -532,7 +528,7 @@ class DynamicExportService
                         break;
                     }
                 }
-                if (!$found) {
+                if (! $found) {
                     throw new \Exception("Required column filter '{$columnName}' not provided in request");
                 }
             }
@@ -580,12 +576,12 @@ class DynamicExportService
                     if ($column->export_filter_id && $column->filter) {
                         $filter = $column->filter;
                         // If it's a relation operator filter, we need to apply constraints
-                        if ($filter->operator === 'relation' && $filter->relation && !$filter->relation->is_column) {
+                        if ($filter->operator === 'relation' && $filter->relation && ! $filter->relation->is_column) {
                             // Store the constraint for this relation
-                            if (!isset($constrainedRelations[$relationPath])) {
+                            if (! isset($constrainedRelations[$relationPath])) {
                                 $constrainedRelations[$relationPath] = [];
                             }
-                            
+
                             $constrainedRelations[$relationPath][] = [
                                 'filter' => $filter,
                                 'values' => $column->export_filter_values ?? $filter->value,
@@ -607,7 +603,7 @@ class DynamicExportService
             });
         // Collect relations from filters (but not direct columns)
         $this->filters->each(function (ExportFilter $filter) use (&$relationsToLoad) {
-            if ($filter->relation && !$filter->relation->is_column) {
+            if ($filter->relation && ! $filter->relation->is_column) {
                 $relationPath = $filter->relation->relation;
                 if (Str::contains($relationPath, '.')) {
                     $this->addNestedRelationPaths($relationPath, $relationsToLoad);
@@ -623,25 +619,25 @@ class DynamicExportService
             usort($uniqueRelations, function ($a, $b) {
                 return substr_count($a, '.') <=> substr_count($b, '.');
             });
-            
+
             $query->with($uniqueRelations);
         }
         // Apply constrained relations
         foreach ($constrainedRelations as $relationPath => $constraints) {
             // Skip if somehow we got a null relation path
-            if (!$relationPath) {
+            if (! $relationPath) {
                 continue;
             }
             // Group constraints by their filter configuration
             $groupedConstraints = [];
-            
+
             foreach ($constraints as $constraint) {
                 $filter = $constraint['filter'];
                 $value = $constraint['values'];
-                
+
                 if ($filter->relation) {
-                    $key = $filter->relation->relation . '|' . $filter->operator . '|' . $filter->logical_operator;
-                    if (!isset($groupedConstraints[$key])) {
+                    $key = $filter->relation->relation.'|'.$filter->operator.'|'.$filter->logical_operator;
+                    if (! isset($groupedConstraints[$key])) {
                         $groupedConstraints[$key] = [
                             'relation' => $filter->relation->relation,
                             'operator' => $filter->operator,
@@ -658,7 +654,7 @@ class DynamicExportService
                     $relation = $config['relation'];
                     $operator = '='; // Default operator for the nested relation
                     $isOr = strtolower($config['logical_operator']) === 'or';
-                    
+
                     if (count($config['values']) === 1) {
                         // Single value constraint
                         $method = $isOr ? 'orWhereRelation' : 'whereRelation';
@@ -684,14 +680,14 @@ class DynamicExportService
      * - workItem.workOrder
      * - workItem.workOrder.customer
      * - workItem.workOrder.customer.contact
-     * 
+     *
      * Note: This assumes the fullPath contains only relations, not attributes
      */
     protected function addNestedRelationPaths(string $fullPath, array &$relationsToLoad): void
     {
         $segments = explode('.', $fullPath);
         $currentPath = '';
-        
+
         foreach ($segments as $segment) {
             $currentPath = $currentPath ? "{$currentPath}.{$segment}" : $segment;
             $relationsToLoad[] = $currentPath;
@@ -714,46 +710,47 @@ class DynamicExportService
 
         // Get the base relation
         $baseRelation = $column->modelRelation->relation;
-        
-        // If the modelRelation already contains dot notation (e.g., "worker.user"), 
+
+        // If the modelRelation already contains dot notation (e.g., "worker.user"),
         // validate and potentially create the missing parts
         if (Str::contains($baseRelation, '.')) {
             $this->validateAndCreateNestedPath($baseRelation);
+
             return $baseRelation;
         }
 
         // If no value_path, just return the direct relation
-        if (!$column->value_path || !Str::contains($column->value_path, '.')) {
+        if (! $column->value_path || ! Str::contains($column->value_path, '.')) {
             return $baseRelation;
         }
 
         // Parse the value_path to separate relations from the final attribute
         $parts = explode('.', $column->value_path);
-        
+
         // If the first part matches the base relation, start from there
         if ($parts[0] === $baseRelation) {
             // Remove the base relation from parts since it's already included
             array_shift($parts);
         }
-        
+
         // Start with the base relation
         $relationParts = [$baseRelation];
-        
+
         // Check each subsequent part to see if it's a relation or attribute
         // We need to stop before the final attribute
         $currentModel = $column->modelRelation->relatedModel;
-        
+
         foreach ($parts as $part) {
-            if (!$currentModel) {
+            if (! $currentModel) {
                 break;
             }
-            
+
             // Check if this part is a relation on the current model
             $relation = $currentModel->relations()
                 ->where('relation', $part)
                 ->where('is_column', false)
                 ->first();
-                
+
             if ($relation) {
                 // It's a relation, add to path
                 $relationParts[] = $part;
@@ -765,7 +762,7 @@ class DynamicExportService
         }
 
         $fullPath = implode('.', $relationParts);
-        
+
         // Validate and create the path if it doesn't exist in our records
         if (count($relationParts) > 1) {
             $this->validateAndCreateNestedPath($fullPath);
@@ -779,7 +776,7 @@ class DynamicExportService
      */
     protected function validateAndCreateNestedPath(string $path): void
     {
-        if (!$this->exportModel || !$this->inspector) {
+        if (! $this->exportModel || ! $this->inspector) {
             return;
         }
 
@@ -795,11 +792,12 @@ class DynamicExportService
         // Validate the path using ModelRelationInspector
         $validation = $this->inspector->validateNestedPath($this->exportModel->model, $path);
 
-        if (!$validation['valid']) {
+        if (! $validation['valid']) {
             Log::warning("Invalid nested path detected: {$path}", [
                 'error' => $validation['error'],
                 'model' => $this->exportModel->model,
             ]);
+
             return;
         }
 
@@ -822,7 +820,7 @@ class DynamicExportService
             // Determine if it's a collection based on the final segment
             $segments = $validation['segments'];
             $isCollection = false;
-            if (!empty($segments)) {
+            if (! empty($segments)) {
                 $lastSegment = end($segments);
                 $isCollection = $lastSegment['is_collection'] ?? false;
             }
@@ -868,28 +866,28 @@ class DynamicExportService
      */
     protected function validateValuePath(string $valuePath): void
     {
-        if (!$this->exportModel || !$this->inspector) {
+        if (! $this->exportModel || ! $this->inspector) {
             return;
         }
 
         // Extract the relation part from value path (excluding final attribute)
         $parts = explode('.', $valuePath);
-        
+
         // Remove the last part (which is likely an attribute)
         array_pop($parts);
-        
+
         if (empty($parts)) {
             return; // No relations in the path
         }
 
         $relationPath = implode('.', $parts);
-        
+
         // Check if this relation path exists
         $exists = ExportModelRelation::where('export_model_id', $this->exportModel->id)
             ->where('relation', $relationPath)
             ->exists();
 
-        if (!$exists) {
+        if (! $exists) {
             // Validate and create the missing relation
             $this->validateAndCreateNestedPath($relationPath);
         }
@@ -1042,9 +1040,9 @@ class DynamicExportService
                 if ($column->export_function_id && $column->exportFunction) {
                     $originalValue = $value;
                     $value = $this->applyColumnFunction($value, $column);
-                    
+
                     if (config('app.debug')) {
-                        Log::info("Function application result:", [
+                        Log::info('Function application result:', [
                             'column_title' => $column->title,
                             'function_id' => $column->export_function_id,
                             'function_name' => $column->exportFunction->name ?? 'unknown',
@@ -1062,17 +1060,16 @@ class DynamicExportService
 
                 // Use default if value is null or empty
                 if ($value === null || $value === '') {
-                    $defaultValue = $column->default ?? '';
-                    
-                    if (config('app.debug') && ($value === null || $value === '')) {
-                        Log::info("Using default value for empty column:", [
+                    $defaultValue = $this->getColumnDefault($column);
+
+                    if (config('app.debug')) {
+                        Log::info('Using default value for empty column:', [
                             'column_title' => $column->title,
                             'original_value' => $value,
-                            'column_default' => $column->default,
-                            'final_value' => $defaultValue,
+                            'final_default' => $defaultValue,
                         ]);
                     }
-                    
+
                     $value = $defaultValue;
                 }
 
@@ -1095,44 +1092,44 @@ class DynamicExportService
     {
         // Add debugging if enabled
         $this->debugRelationLoading($model, $column);
-        
+
         $value = null;
-        
+
         // If no relation, get direct attribute
         if (! $column->export_model_relation_id) {
             $value = data_get($model, $column->value_path ?? $column->relation);
-            
+
             if (config('app.debug')) {
-                Log::info("Direct attribute extraction:", [
+                Log::info('Direct attribute extraction:', [
                     'column_title' => $column->title,
                     'value_path' => $column->value_path,
                     'extracted_value' => $value,
                 ]);
             }
-            
+
             return $value;
         }
 
         // Check if this column has a filter that constrained the relation
         if ($column->export_filter_id && $column->filter && $column->filter->operator === 'relation') {
             $value = $this->extractCollectionValue($model, $column);
-            
+
             if (config('app.debug')) {
-                Log::info("Collection value extraction:", [
+                Log::info('Collection value extraction:', [
                     'column_title' => $column->title,
                     'filter_operator' => $column->filter->operator,
                     'extracted_value' => $value,
                 ]);
             }
-            
+
             return $value;
         }
 
         // Handle regular relation traversal
         $value = $this->resolveRelationValue($model, $column);
-        
+
         if (config('app.debug')) {
-            Log::info("Relation value extraction:", [
+            Log::info('Relation value extraction:', [
                 'column_title' => $column->title,
                 'relation_path' => $column->modelRelation->relation ?? 'none',
                 'value_path' => $column->value_path,
@@ -1140,7 +1137,7 @@ class DynamicExportService
                 'value_type' => gettype($value),
             ]);
         }
-        
+
         return $value;
     }
 
@@ -1149,7 +1146,7 @@ class DynamicExportService
      */
     protected function resolveRelationValue(Model $model, ExportColumn $column)
     {
-        if (!$column->modelRelation) {
+        if (! $column->modelRelation) {
             return data_get($model, $column->value_path);
         }
 
@@ -1158,7 +1155,7 @@ class DynamicExportService
 
         // Debug logging - enhanced for user relations
         if (config('app.debug') && (Str::contains($relationPath, 'worker') || Str::contains($relationPath, 'user'))) {
-            Log::info("Resolving relation:", [
+            Log::info('Resolving relation:', [
                 'relation_path' => $relationPath,
                 'value_path' => $valuePath,
                 'model_type' => get_class($model),
@@ -1172,20 +1169,21 @@ class DynamicExportService
         if (Str::contains($relationPath, '.')) {
             // Try to get the value directly using the relation path
             $relatedData = data_get($model, $relationPath);
-            
+
             if ($relatedData !== null && $valuePath) {
                 // If we have a value path, it might be an attribute on the final relation
                 // First check if valuePath starts with relationPath
-                if (Str::startsWith($valuePath, $relationPath . '.')) {
+                if (Str::startsWith($valuePath, $relationPath.'.')) {
                     // Get the attribute part after the relation
-                    $attribute = Str::after($valuePath, $relationPath . '.');
+                    $attribute = Str::after($valuePath, $relationPath.'.');
+
                     return data_get($relatedData, $attribute);
                 } else {
                     // Try the value path as-is
                     return data_get($model, $valuePath);
                 }
             }
-            
+
             return $relatedData;
         }
 
@@ -1193,38 +1191,38 @@ class DynamicExportService
         if ($valuePath && Str::contains($valuePath, '.')) {
             // Check if we need to create missing nested relations for this path
             $this->validateValuePath($valuePath);
-            
+
             // Use the full value path directly
             $relatedData = data_get($model, $valuePath);
-            
+
             // If direct path didn't work, try building it step by step
             if ($relatedData === null) {
                 // Start with the base relation
                 $baseRelation = data_get($model, $relationPath);
-                
+
                 if ($baseRelation) {
                     // Extract the remaining path after the base relation
                     $pathParts = explode('.', $valuePath);
                     $relationParts = explode('.', $relationPath);
-                    
+
                     // Remove the relation parts from the value path
                     $remainingPath = array_slice($pathParts, count($relationParts));
-                    
-                    if (!empty($remainingPath)) {
+
+                    if (! empty($remainingPath)) {
                         return data_get($baseRelation, implode('.', $remainingPath));
                     }
-                    
+
                     return $baseRelation;
                 }
             }
-            
+
             return $relatedData;
         }
 
         // Simple case - use value path if provided, otherwise relation path
         if ($valuePath) {
             $value = data_get($model, $valuePath);
-            
+
             // If value path didn't work, try extracting from the relation
             if ($value === null && $relationPath) {
                 $relatedData = data_get($model, $relationPath);
@@ -1233,29 +1231,29 @@ class DynamicExportService
                     $value = data_get($relatedData, $valuePath);
                 }
             }
-            
+
             return $value;
         }
 
         // Default to relation data
         $relationData = data_get($model, $relationPath);
-        
+
         // If it's a model/object and we don't have a specific value path,
         // try to get a meaningful value (like name, title, or convert to string)
-        if (is_object($relationData) && !is_iterable($relationData)) {
+        if (is_object($relationData) && ! is_iterable($relationData)) {
             // Try common attribute names
             foreach (['name', 'title', 'value', 'label'] as $attr) {
                 if (isset($relationData->$attr)) {
                     return $relationData->$attr;
                 }
             }
-            
+
             // Try to convert to string
             if (method_exists($relationData, '__toString')) {
                 return (string) $relationData;
             }
         }
-        
+
         return $relationData;
     }
 
@@ -1264,29 +1262,30 @@ class DynamicExportService
      */
     protected function extractCollectionValue(Model $model, ExportColumn $column)
     {
-        if (!$column->export_filter_id || !$column->filter) {
+        if (! $column->export_filter_id || ! $column->filter) {
             if (config('app.debug')) {
-                Log::info("Collection extraction skipped - no filter:", [
+                Log::info('Collection extraction skipped - no filter:', [
                     'column_title' => $column->title,
-                    'has_filter_id' => !empty($column->export_filter_id),
-                    'has_filter' => !empty($column->filter),
+                    'has_filter_id' => ! empty($column->export_filter_id),
+                    'has_filter' => ! empty($column->filter),
                 ]);
             }
-            return $column->default ?? '';
+
+            return $this->getColumnDefault($column);
         }
 
         $filter = $column->filter;
         $relationPath = $column->modelRelation->relation;
-        
+
         // Validate nested paths if needed
         if (Str::contains($relationPath, '.')) {
             $this->validateValuePath($relationPath);
         }
-        
+
         $collection = data_get($model, $relationPath);
 
         if (config('app.debug')) {
-            Log::info("Collection extraction details:", [
+            Log::info('Collection extraction details:', [
                 'column_title' => $column->title,
                 'relation_path' => $relationPath,
                 'value_path' => $column->value_path,
@@ -1298,29 +1297,29 @@ class DynamicExportService
             ]);
         }
 
-        if (!$collection || !is_iterable($collection)) {
-            return $column->default ?? '';
+        if (! $collection || ! is_iterable($collection)) {
+            return $this->getColumnDefault($column);
         }
 
         // Convert to collection if it's not already
-        if (!($collection instanceof \Illuminate\Support\Collection)) {
+        if (! ($collection instanceof \Illuminate\Support\Collection)) {
             $collection = collect($collection);
         }
 
         // Filter the collection based on the relation operator filter
-        $filtered = $collection->filter(function($item) use ($filter, $column) {
+        $filtered = $collection->filter(function ($item) use ($filter, $column) {
             // For relation operator filters
             if ($filter->operator === 'relation' && $filter->value) {
                 $filterConfig = is_string($filter->value) ? json_decode($filter->value, true) : $filter->value;
-                
+
                 if (is_array($filterConfig) && count($filterConfig) >= 4) {
                     // Format: ['workItem.values', 'type.title', '=', 'Splits']
                     $filterPath = $filterConfig[1]; // 'type.title'
                     $expectedValue = $filterConfig[3]; // 'Splits'
                     $actualValue = data_get($item, $filterPath);
-                    
+
                     if (config('app.debug')) {
-                        Log::info("Relation filter check:", [
+                        Log::info('Relation filter check:', [
                             'column_title' => $column->title,
                             'filter_path' => $filterPath,
                             'expected_value' => $expectedValue,
@@ -1328,22 +1327,22 @@ class DynamicExportService
                             'matches' => $actualValue === $expectedValue,
                         ]);
                     }
-                    
+
                     return $actualValue === $expectedValue;
                 }
             }
-            
+
             // Fallback for other filter types
-            if (!$filter->relation) {
+            if (! $filter->relation) {
                 return false;
             }
-            
+
             $filterRelation = $filter->relation->relation;
             $expectedValue = $column->export_filter_values ?? $filter->value;
             $actualValue = data_get($item, $filterRelation);
-            
+
             if (config('app.debug')) {
-                Log::info("Collection item filter check:", [
+                Log::info('Collection item filter check:', [
                     'filter_relation' => $filterRelation,
                     'expected_value' => $expectedValue,
                     'actual_value' => $actualValue,
@@ -1353,35 +1352,36 @@ class DynamicExportService
                     'item_data' => is_object($item) ? get_object_vars($item) : $item,
                 ]);
             }
-            
+
             // Try exact match first
             if ($actualValue === $expectedValue) {
                 return true;
             }
-            
+
             // Try loose comparison for cases where types might differ
             if ($actualValue == $expectedValue) {
                 if (config('app.debug')) {
-                    Log::info("Collection filter matched with loose comparison", [
+                    Log::info('Collection filter matched with loose comparison', [
                         'actual_value' => $actualValue,
                         'expected_value' => $expectedValue,
                         'actual_type' => gettype($actualValue),
                         'expected_type' => gettype($expectedValue),
                     ]);
                 }
+
                 return true;
             }
-            
+
             // Try string comparison for ID-based matches
             if (is_numeric($actualValue) && is_numeric($expectedValue)) {
-                return (string)$actualValue === (string)$expectedValue;
+                return (string) $actualValue === (string) $expectedValue;
             }
-            
+
             return false;
         });
 
         if (config('app.debug')) {
-            Log::info("Collection filtering result:", [
+            Log::info('Collection filtering result:', [
                 'column_title' => $column->title,
                 'original_count' => $collection->count(),
                 'filtered_count' => $filtered->count(),
@@ -1390,36 +1390,36 @@ class DynamicExportService
 
         // Return the value from the first matching item
         $firstMatch = $filtered->first();
-        
-        if (!$firstMatch) {
+
+        if (! $firstMatch) {
             if (config('app.debug')) {
-                Log::info("No matches found in collection filter, using fallback strategy:", [
+                Log::info('No matches found in collection filter, using fallback strategy:', [
                     'column_title' => $column->title,
                     'collection_count' => $collection->count(),
                     'filter_relation' => $filter->relation ? $filter->relation->relation : 'no relation',
                     'expected_value' => $column->export_filter_values ?? $filter->value,
                 ]);
             }
-            
+
             // No match found - return default value
-            return $column->default ?? '';
+            return $this->getColumnDefault($column);
         }
 
         // Extract the specific value path from the matched item
         $extractedValue = null;
-        
+
         if ($column->value_path) {
             if (Str::contains($column->value_path, '.')) {
                 // Complex path handling
-                if (Str::startsWith($column->value_path, $relationPath . '.')) {
+                if (Str::startsWith($column->value_path, $relationPath.'.')) {
                     // Get the attribute part after the relation path
-                    $attribute = Str::after($column->value_path, $relationPath . '.');
+                    $attribute = Str::after($column->value_path, $relationPath.'.');
                     $extractedValue = data_get($firstMatch, $attribute);
                 } else {
                     // Try different extraction strategies
                     $pathParts = explode('.', $column->value_path);
                     $relationParts = explode('.', $relationPath);
-                    
+
                     // Check if value_path starts with relation parts
                     $valueStartsWithRelation = true;
                     for ($i = 0; $i < count($relationParts) && $i < count($pathParts); $i++) {
@@ -1428,7 +1428,7 @@ class DynamicExportService
                             break;
                         }
                     }
-                    
+
                     if ($valueStartsWithRelation && count($pathParts) > count($relationParts)) {
                         $remainingPath = array_slice($pathParts, count($relationParts));
                         $extractedValue = data_get($firstMatch, implode('.', $remainingPath));
@@ -1442,7 +1442,7 @@ class DynamicExportService
                 $extractedValue = data_get($firstMatch, $column->value_path);
             }
         }
-        
+
         // If no specific value extracted, try common attributes
         if ($extractedValue === null) {
             foreach (['value', 'name', 'title', 'label'] as $attr) {
@@ -1452,14 +1452,14 @@ class DynamicExportService
                 }
             }
         }
-        
+
         // Fall back to the item itself
         if ($extractedValue === null) {
             $extractedValue = $firstMatch;
         }
 
         if (config('app.debug')) {
-            Log::info("Collection value extraction result:", [
+            Log::info('Collection value extraction result:', [
                 'column_title' => $column->title,
                 'value_path' => $column->value_path,
                 'extracted_value' => $extractedValue,
@@ -1497,10 +1497,10 @@ class DynamicExportService
         if (is_callable($callable)) {
             try {
                 $result = call_user_func_array($callable, $params);
-                
+
                 // Debug logging for function execution
                 if (config('app.debug')) {
-                    Log::info("Function executed successfully:", [
+                    Log::info('Function executed successfully:', [
                         'function_name' => $function->name,
                         'callable' => $callable,
                         'input_value' => $value,
@@ -1508,11 +1508,11 @@ class DynamicExportService
                         'result' => $result,
                     ]);
                 }
-                
+
                 return $result;
             } catch (\Throwable $e) {
                 // Log function execution errors
-                Log::error("Function execution failed:", [
+                Log::error('Function execution failed:', [
                     'function_name' => $function->name,
                     'callable' => $callable,
                     'input_value' => $value,
@@ -1520,12 +1520,12 @@ class DynamicExportService
                     'error' => $e->getMessage(),
                     'column_title' => $column->title,
                 ]);
-                
+
                 // Return original value on error
                 return $value;
             }
         } else {
-            Log::warning("Function not callable:", [
+            Log::warning('Function not callable:', [
                 'function_name' => $function->name,
                 'callable' => $callable,
                 'column_title' => $column->title,
@@ -1557,7 +1557,6 @@ class DynamicExportService
             default => $values,
         };
     }
-
 
     /**
      * Execute export with chunking for large datasets
@@ -1747,7 +1746,7 @@ class DynamicExportService
     {
         // Check for orphaned relations
         foreach ($layout->columns as $column) {
-            if ($column->export_model_relation_id && !$column->modelRelation) {
+            if ($column->export_model_relation_id && ! $column->modelRelation) {
                 throw new \Exception("Column '{$column->title}' references non-existent relation ID: {$column->export_model_relation_id}");
             }
         }
@@ -1755,21 +1754,21 @@ class DynamicExportService
         // Check for required filters without proper configuration
         $requiredFilters = $layout->filters()->where('is_required', true)->get();
         foreach ($requiredFilters as $filter) {
-            if ($filter->is_request && !isset($filter->request_key)) {
+            if ($filter->is_request && ! isset($filter->request_key)) {
                 // For now, just warn in logs instead of throwing exception
                 if (config('app.debug')) {
                     Log::warning("Required request filter '{$filter->id}' missing request_key field");
                 }
             }
-            
-            if (!$filter->relation && !$filter->export_model_relation_id) {
+
+            if (! $filter->relation && ! $filter->export_model_relation_id) {
                 throw new \Exception("Required filter '{$filter->id}' has no relation configured");
             }
         }
 
         // Check for column filters with missing relations
         foreach ($layout->columns as $column) {
-            if ($column->export_filter_id && !$column->filter) {
+            if ($column->export_filter_id && ! $column->filter) {
                 throw new \Exception("Column '{$column->title}' references non-existent filter ID: {$column->export_filter_id}");
             }
         }
@@ -1782,20 +1781,20 @@ class DynamicExportService
     {
         if (config('app.debug')) {
             Log::info("Processing column: {$column->title}");
-            Log::info("Model relation ID: " . ($column->export_model_relation_id ?? 'none'));
-            Log::info("Relation path: " . ($column->modelRelation->relation ?? 'none'));
+            Log::info('Model relation ID: '.($column->export_model_relation_id ?? 'none'));
+            Log::info('Relation path: '.($column->modelRelation->relation ?? 'none'));
             Log::info("Value path: {$column->value_path}");
-            
+
             if ($column->modelRelation) {
                 $relationPath = $column->modelRelation->relation;
                 $relatedData = data_get($model, $relationPath);
-                Log::info("Related data exists: " . ($relatedData ? 'yes' : 'no'));
-                Log::info("Related data type: " . gettype($relatedData));
-                
+                Log::info('Related data exists: '.($relatedData ? 'yes' : 'no'));
+                Log::info('Related data type: '.gettype($relatedData));
+
                 if (is_object($relatedData)) {
-                    Log::info("Related data class: " . get_class($relatedData));
+                    Log::info('Related data class: '.get_class($relatedData));
                     if ($relatedData instanceof \Illuminate\Database\Eloquent\Collection) {
-                        Log::info("Collection count: " . $relatedData->count());
+                        Log::info('Collection count: '.$relatedData->count());
                     }
                 }
             }
@@ -1812,7 +1811,7 @@ class DynamicExportService
         foreach ($this->columns as $column) {
             if ($column->export_model_relation_id && $column->modelRelation) {
                 $relationPath = $column->modelRelation->relation;
-                
+
                 // Add the direct relation
                 $with[] = $relationPath;
 
@@ -1820,14 +1819,14 @@ class DynamicExportService
                 if ($column->value_path && Str::contains($column->value_path, '.')) {
                     $parts = explode('.', $column->value_path);
                     $currentPath = '';
-                    
+
                     foreach ($parts as $i => $part) {
                         if ($i === 0) {
                             $currentPath = $part;
                         } else {
-                            $currentPath .= '.' . $part;
+                            $currentPath .= '.'.$part;
                         }
-                        
+
                         // Don't add the final attribute, only relations
                         if ($i < count($parts) - 1) {
                             $with[] = $currentPath;
@@ -1839,11 +1838,10 @@ class DynamicExportService
 
         // Add relations from filters (but not direct columns)
         foreach ($this->filters as $filter) {
-            if ($filter->relation && !$filter->relation->is_column) {
+            if ($filter->relation && ! $filter->relation->is_column) {
                 $with[] = $filter->relation->relation;
             }
         }
-        
 
         return array_unique($with);
     }
@@ -1860,14 +1858,37 @@ class DynamicExportService
             str_replace('.', '_', $columnName), // Handle dots replaced with underscores
             str_replace('.', '_', Str::snake($columnName)), // Snake case with underscores
         ];
-        
+
         // If filter ID is provided, add variations with the filter ID
         if ($filterId) {
             $keys[] = $filterId; // Direct filter ID
             $keys[] = str_replace('-', '_', $filterId); // Filter ID with underscores instead of dashes
         }
-        
+
         return array_unique($keys);
+    }
+
+    /**
+     * Get the default value for a column, checking request overrides first.
+     */
+    protected function getColumnDefault(ExportColumn $column): string
+    {
+        // Check for request-based default override by column ID
+        if (isset($this->requestData['defaults'][$column->id])) {
+            if (config('app.debug')) {
+                Log::info('Using request-based default override:', [
+                    'column_id' => $column->id,
+                    'column_title' => $column->title,
+                    'request_default' => $this->requestData['defaults'][$column->id],
+                    'static_default' => $column->default,
+                ]);
+            }
+
+            return $this->requestData['defaults'][$column->id];
+        }
+
+        // Fall back to static default
+        return $column->default ?? '';
     }
 
     /**
@@ -1877,13 +1898,13 @@ class DynamicExportService
     {
         $relationPath = $filter->relation->relation;
         $segments = explode('.', $relationPath);
-        
+
         // Since is_column = true, last segment is the column
         $column = array_pop($segments);
         $relation = implode('.', $segments);
-        
+
         if (config('app.debug')) {
-            Log::info("Applying smart relation filter:", [
+            Log::info('Applying smart relation filter:', [
                 'original_path' => $relationPath,
                 'parsed_relation' => $relation,
                 'parsed_column' => $column,
@@ -1891,14 +1912,14 @@ class DynamicExportService
                 'value' => $value,
             ]);
         }
-        
+
         // Special handling for 'in' and 'not_in' operators with nested relations
         if (in_array($filter->operator, ['in', 'not_in']) && str_contains($relation, '.')) {
             $this->applyNestedWhereHas($query, $relation, $column, $filter->operator, $value, $isOr);
         } else {
             // Simple single-level relation or operators that work fine with whereRelation
             $method = $isOr ? 'orWhereHas' : 'whereHas';
-            $query->$method($relation, function($q) use ($column, $filter, $value) {
+            $query->$method($relation, function ($q) use ($column, $filter, $value) {
                 $this->applyOperator($q, $column, $filter->operator, $value, false);
             });
         }
@@ -1911,16 +1932,16 @@ class DynamicExportService
     {
         $relations = explode('.', $relationPath);
         $method = $isOr ? 'orWhereHas' : 'whereHas';
-        
+
         if (config('app.debug')) {
-            Log::info("Applying nested whereHas:", [
+            Log::info('Applying nested whereHas:', [
                 'relations' => $relations,
                 'column' => $column,
                 'operator' => $operator,
                 'value' => $value,
             ]);
         }
-        
+
         // Build nested whereHas
         $query->$method(array_shift($relations), function ($q) use ($relations, $column, $operator, $value) {
             $this->buildNestedQuery($q, $relations, $column, $operator, $value);
