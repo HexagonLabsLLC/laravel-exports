@@ -471,6 +471,74 @@ $requestData = [
 $data = $exportService->executeExport($layout, $requestData);
 ```
 
+### Override Column Defaults via Request
+
+You can override column default values at runtime by passing a `defaults` array keyed by column UUID:
+
+```php
+// Get column IDs from the layout
+$layout = ExportLayout::with('columns')->find($layoutId);
+$customerNameColumn = $layout->columns->where('title', 'Customer Name')->first();
+$statusColumn = $layout->columns->where('title', 'Status')->first();
+
+// Execute export with default overrides
+$requestData = [
+    'defaults' => [
+        $customerNameColumn->id => 'Unknown Customer',
+        $statusColumn->id => 'N/A',
+    ],
+    // Other filters...
+    'date_range' => ['2025-01-01', '2025-12-31'],
+];
+
+$data = $exportService->executeExport($layout, $requestData);
+```
+
+Request-based defaults take priority over the static `default` field configured on the column. This is useful when:
+- Different API consumers need different fallback values
+- Default values depend on request context (e.g., locale, user preferences)
+- You want to override defaults without modifying the export configuration
+
+### Force Column Values with Overrides
+
+Unlike defaults (which only apply when values are empty), **overrides always replace** the column value regardless of what data exists:
+
+```php
+$layout = ExportLayout::with('columns')->find($layoutId);
+$customerColumn = $layout->columns->where('title', 'Customer Name')->first();
+$statusColumn = $layout->columns->where('title', 'Status')->first();
+
+$requestData = [
+    'overrides' => [
+        $customerColumn->id => 'REDACTED',    // Always shows "REDACTED"
+        $statusColumn->id => 'Processing',     // Always shows "Processing"
+    ],
+];
+
+$data = $exportService->executeExport($layout, $requestData);
+```
+
+You can combine defaults and overrides:
+
+```php
+$requestData = [
+    // Use this when customer name is missing
+    'defaults' => [
+        $customerColumn->id => 'Unknown Customer',
+    ],
+    // Always use this for status (regardless of actual value)
+    'overrides' => [
+        $statusColumn->id => 'Processing',
+    ],
+];
+```
+
+**Key differences:**
+| Feature | When Applied | Use Case |
+|---------|--------------|----------|
+| `defaults` | Only when extracted value is null/empty | Fallback for missing data |
+| `overrides` | Always, replaces any extracted value | Force specific values regardless of data |
+
 ### Download Response
 
 ```php
