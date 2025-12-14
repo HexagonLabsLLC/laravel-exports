@@ -78,6 +78,9 @@ class DynamicExportService
      */
     protected function loadLayout(ExportLayout|string $layout): void
     {
+        // Reset collections to prevent memory leaks when service is reused (singleton)
+        $this->initializeCollections();
+
         if (is_string($layout)) {
             $layout = ExportLayout::find($layout);
         }
@@ -1058,19 +1061,40 @@ class DynamicExportService
                     $value = $this->applyAggregation($value, $column->aggregator);
                 }
 
-                // Use default if value is null or empty
-                if ($value === null || $value === '') {
+                // Use default if value is null, empty string, empty array, empty collection,
+                // or a Model object (which indicates extraction failed to get a specific attribute)
+                $isEmpty = $value === null
+                    || $value === ''
+                    || (is_array($value) && empty($value))
+                    || ($value instanceof \Illuminate\Support\Collection && $value->isEmpty())
+                    || ($value instanceof \Illuminate\Database\Eloquent\Model);
+
+                if ($isEmpty) {
                     $defaultValue = $this->getColumnDefault($column);
 
                     if (config('app.debug')) {
                         Log::info('Using default value for empty column:', [
                             'column_title' => $column->title,
-                            'original_value' => $value,
+                            'original_value' => $value instanceof \Illuminate\Database\Eloquent\Model ? get_class($value) : $value,
+                            'original_type' => gettype($value),
                             'final_default' => $defaultValue,
                         ]);
                     }
 
                     $value = $defaultValue;
+                }
+
+                // Apply override if present (takes precedence over everything)
+                $override = $this->getColumnOverride($column);
+                if ($override !== null) {
+                    if (config('app.debug')) {
+                        Log::info('Applying column override:', [
+                            'column_title' => $column->title,
+                            'original_value' => $value,
+                            'override_value' => $override,
+                        ]);
+                    }
+                    $value = $override;
                 }
 
                 // Skip if configured to omit empty
@@ -1873,6 +1897,17 @@ class DynamicExportService
      */
     protected function getColumnDefault(ExportColumn $column): string
     {
+        // Debug: Log what we're checking
+        if (config('app.debug')) {
+            Log::info('getColumnDefault checking:', [
+                'column_id' => $column->id,
+                'column_title' => $column->title,
+                'has_defaults_in_request' => isset($this->requestData['defaults']),
+                'defaults_keys' => isset($this->requestData['defaults']) ? array_keys($this->requestData['defaults']) : [],
+                'match_found' => isset($this->requestData['defaults'][$column->id]),
+            ]);
+        }
+
         // Check for request-based default override by column ID
         if (isset($this->requestData['defaults'][$column->id])) {
             if (config('app.debug')) {
@@ -1889,6 +1924,27 @@ class DynamicExportService
 
         // Fall back to static default
         return $column->default ?? '';
+    }
+
+    /**
+     * Get the override value for a column if one exists in the request.
+     * Overrides always replace the value, regardless of whether it's empty.
+     */
+    protected function getColumnOverride(ExportColumn $column): ?string
+    {
+        if (isset($this->requestData['overrides'][$column->id])) {
+            if (config('app.debug')) {
+                Log::info('Column override found:', [
+                    'column_id' => $column->id,
+                    'column_title' => $column->title,
+                    'override_value' => $this->requestData['overrides'][$column->id],
+                ]);
+            }
+
+            return $this->requestData['overrides'][$column->id];
+        }
+
+        return null;
     }
 
     /**
