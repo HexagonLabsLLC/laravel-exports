@@ -38,19 +38,30 @@ class ExportFilter extends Model
         'is_required',
     ];
 
-    protected $casts = [
-        'is_request' => 'boolean',
-        'is_required' => 'boolean',
-    ];
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_request' => 'boolean',
+            'is_required' => 'boolean',
+        ];
+    }
 
     public function layout(): BelongsTo
     {
         return $this->belongsTo(ExportLayout::class, 'export_layout_id');
     }
 
+    /**
+     * @deprecated Use modelRelation() instead for consistency with other models
+     */
     public function relation(): BelongsTo
     {
-        return $this->belongsTo(ExportModelRelation::class, 'export_model_relation_id');
+        return $this->modelRelation();
     }
 
     public function modelRelation(): BelongsTo
