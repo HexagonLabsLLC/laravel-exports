@@ -2,6 +2,8 @@
 
 namespace HexagonLabsLLC\LaravelExports;
 
+use HexagonLabsLLC\LaravelExports\Helpers\ModelRelationInspector;
+use HexagonLabsLLC\LaravelExports\Services\DynamicExportService;
 use Illuminate\Support\ServiceProvider;
 
 class LaravelExportsServiceProvider extends ServiceProvider
@@ -15,9 +17,19 @@ class LaravelExportsServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/laravel-exports.php', 'laravel-exports');
 
-        // Register the main service
+        // Register ModelRelationInspector as singleton
+        $this->app->singleton(ModelRelationInspector::class);
+
+        // Register DynamicExportService with proper dependency injection
+        $this->app->singleton(DynamicExportService::class, function ($app) {
+            return new DynamicExportService(
+                $app->make(ModelRelationInspector::class)
+            );
+        });
+
+        // Register facade alias
         $this->app->singleton('laravel-exports', function ($app) {
-            return new Services\DynamicExportService;
+            return $app->make(DynamicExportService::class);
         });
     }
 
