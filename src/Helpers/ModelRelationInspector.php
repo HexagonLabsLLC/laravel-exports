@@ -3,6 +3,7 @@
 namespace HexagonLabsLLC\LaravelExports\Helpers;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -109,14 +110,71 @@ class ModelRelationInspector
                 continue;
             }
 
+            // Detect pivot info for BelongsToMany
+            $pivotInfo = ['has_pivot' => false, 'pivot_columns' => [], 'pivot_table' => null];
+            if ($relationType === 'BelongsToMany') {
+                $pivotInfo = $this->detectPivotInfo($return);
+            }
+
             $relations[$method->getName()] = [
                 'type' => $relationType,
                 'related_model' => $relatedModel,
                 'is_collection' => $isCollection,
+                'has_pivot' => $pivotInfo['has_pivot'],
+                'pivot_columns' => $pivotInfo['pivot_columns'],
+                'pivot_table' => $pivotInfo['pivot_table'],
             ];
         }
 
         return $relations;
+    }
+
+    /**
+     * Detect pivot table information from a BelongsToMany relation.
+     *
+     * @return array{has_pivot: bool, pivot_columns: string[], pivot_table: ?string}
+     */
+    protected function detectPivotInfo(Relation $relation): array
+    {
+        if (! $relation instanceof BelongsToMany) {
+            return ['has_pivot' => false, 'pivot_columns' => [], 'pivot_table' => null];
+        }
+
+        $pivotColumns = [];
+        $pivotTable = null;
+
+        try {
+            // Get pivot table name
+            $pivotTable = $relation->getTable();
+
+            // Get pivot columns using reflection to access the protected pivotColumns property
+            $reflection = new ReflectionClass($relation);
+
+            // Try to get pivotColumns property
+            if ($reflection->hasProperty('pivotColumns')) {
+                $property = $reflection->getProperty('pivotColumns');
+                $property->setAccessible(true);
+                $pivotColumns = $property->getValue($relation) ?: [];
+            }
+
+            // Also check for withTimestamps - if enabled, add created_at and updated_at
+            if ($reflection->hasProperty('withTimestamps')) {
+                $timestampProperty = $reflection->getProperty('withTimestamps');
+                $timestampProperty->setAccessible(true);
+                if ($timestampProperty->getValue($relation)) {
+                    // Timestamps are typically added by withTimestamps()
+                    // But they're handled separately from pivotColumns
+                }
+            }
+        } catch (\Throwable $e) {
+            // Silently fail if we can't access pivot info
+        }
+
+        return [
+            'has_pivot' => ! empty($pivotColumns),
+            'pivot_columns' => $pivotColumns,
+            'pivot_table' => $pivotTable,
+        ];
     }
 
     /**
@@ -134,7 +192,7 @@ class ModelRelationInspector
 
         try {
             $result = $method->invoke($model);
-            
+
             // If the method started a transaction, roll it back
             $transactionsAfter = DB::transactionLevel();
             if ($transactionsAfter > $transactionsBefore) {
@@ -142,7 +200,7 @@ class ModelRelationInspector
                     DB::rollBack();
                 }
             }
-            
+
         } catch (\Throwable) {
             // Roll back any transactions that might have been started
             $transactionsAfter = DB::transactionLevel();
@@ -225,7 +283,7 @@ class ModelRelationInspector
         $segments = explode('.', $path);
         $currentClass = $modelClass;
         $segmentDetails = [];
-        
+
         try {
             foreach ($segments as $index => $segment) {
                 if (! method_exists($currentClass, $segment)) {
@@ -235,18 +293,18 @@ class ModelRelationInspector
                         'segments' => $segmentDetails,
                         'final_model' => null,
                         'final_columns' => null,
-                        'error' => "Method '{$segment}' not found on {$currentClass} at segment " . ($index + 1),
+                        'error' => "Method '{$segment}' not found on {$currentClass} at segment ".($index + 1),
                     ];
                 }
 
                 $model = new $currentClass;
-                
+
                 // Track transaction level and rollback if needed
                 $transactionsBefore = DB::transactionLevel();
-                
+
                 try {
                     $result = $model->$segment();
-                    
+
                     // Rollback any transactions started
                     while (DB::transactionLevel() > $transactionsBefore) {
                         DB::rollBack();
@@ -256,14 +314,14 @@ class ModelRelationInspector
                     while (DB::transactionLevel() > $transactionsBefore) {
                         DB::rollBack();
                     }
-                    
+
                     return [
                         'valid' => false,
                         'path' => $path,
                         'segments' => $segmentDetails,
                         'final_model' => null,
                         'final_columns' => null,
-                        'error' => "Error invoking '{$segment}' on {$currentClass}: " . $e->getMessage(),
+                        'error' => "Error invoking '{$segment}' on {$currentClass}: ".$e->getMessage(),
                     ];
                 }
 
@@ -305,7 +363,7 @@ class ModelRelationInspector
                 'final_columns' => $finalColumns,
                 'error' => null,
             ];
-            
+
         } catch (\Throwable $e) {
             return [
                 'valid' => false,
@@ -313,7 +371,7 @@ class ModelRelationInspector
                 'segments' => $segmentDetails,
                 'final_model' => null,
                 'final_columns' => null,
-                'error' => 'Unexpected error: ' . $e->getMessage(),
+                'error' => 'Unexpected error: '.$e->getMessage(),
             ];
         }
     }
@@ -356,17 +414,17 @@ class ModelRelationInspector
             'relations' => $this->getModelRelations($modelClass),
         ];
     }
-  
+
     public function getNestedRelationPaths(string $modelClass, int $maxDepth = 3): array
     {
         $paths = [];
         $visited = []; // Prevent circular references
-        
+
         $this->discoverNestedPaths($modelClass, '', 1, $maxDepth, $paths, $visited);
-        
+
         return $paths;
     }
-  
+
     protected function discoverNestedPaths(
         string $modelClass,
         string $currentPath,
@@ -431,17 +489,17 @@ class ModelRelationInspector
     {
         // Check if this model appears earlier in the path
         $segments = explode('.', $path);
-        
+
         // Build the path progressively to check each level
         $currentPath = '';
         for ($i = 0; $i < count($segments) - 1; $i++) {
-            $currentPath = $i === 0 ? $segments[$i] : $currentPath . '.' . $segments[$i];
-            
+            $currentPath = $i === 0 ? $segments[$i] : $currentPath.'.'.$segments[$i];
+
             if (isset($existingPaths[$currentPath]) && $existingPaths[$currentPath]['final_model'] === $targetModel) {
                 return true;
             }
         }
-        
+
         return false;
     }
 
