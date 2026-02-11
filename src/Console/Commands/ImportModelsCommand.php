@@ -9,7 +9,6 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
-use ReflectionClass;
 
 class ImportModelsCommand extends Command
 {
@@ -51,7 +50,7 @@ class ImportModelsCommand extends Command
         $this->logFile = storage_path('logs/import-models-'.date('Y-m-d-H-i-s').'.log');
         File::put($this->logFile, "Import Models Debug Log\n".str_repeat('=', 50)."\n\n");
         $this->log('Starting import at '.date('Y-m-d H:i:s'));
-        $this->log("Transaction level at start: " . DB::transactionLevel());
+        $this->log('Transaction level at start: '.DB::transactionLevel());
 
         $path = base_path($this->option('path'));
         $namespace = $this->option('namespace');
@@ -83,12 +82,12 @@ class ImportModelsCommand extends Command
         // Create inspector with omit list and deep nesting option
         $omitList = $omit ? explode(',', $omit) : [];
         $deepLevel = (int) $this->option('deep-level');
-        $this->log("Transaction level before ModelRelationInspector: " . DB::transactionLevel());
+        $this->log('Transaction level before ModelRelationInspector: '.DB::transactionLevel());
         $this->inspector = new ModelRelationInspector($omitList, $path, $namespace, $this->option('deep'), $deepLevel);
-        $this->log("Transaction level after ModelRelationInspector: " . DB::transactionLevel());
+        $this->log('Transaction level after ModelRelationInspector: '.DB::transactionLevel());
         $this->log("\nCreated ModelRelationInspector with omit list: ".json_encode($omitList));
-        $this->log("Deep nesting enabled: " . ($this->option('deep') ? 'YES' : 'NO'));
-        $this->log("Max nesting depth: " . $deepLevel);
+        $this->log('Deep nesting enabled: '.($this->option('deep') ? 'YES' : 'NO'));
+        $this->log('Max nesting depth: '.$deepLevel);
 
         if (! File::isDirectory($path)) {
             $this->error("Directory not found: {$path}");
@@ -135,7 +134,7 @@ class ImportModelsCommand extends Command
             foreach ($models as $modelClass) {
                 $this->syncModelColumns($modelClass);
             }
-            
+
             // Count after Phase 2
             $phase2Columns = ExportModelRelation::where('is_column', true)->count();
             $phase2Relations = ExportModelRelation::where('is_column', false)->count();
@@ -148,7 +147,7 @@ class ImportModelsCommand extends Command
             foreach ($models as $modelClass) {
                 $this->syncModelRelations($modelClass);
             }
-            
+
             // Count after Phase 3
             $phase3Columns = ExportModelRelation::where('is_column', true)->count();
             $phase3Relations = ExportModelRelation::where('is_column', false)->count();
@@ -160,13 +159,13 @@ class ImportModelsCommand extends Command
                 $deepLevel = (int) $this->option('deep-level');
                 $this->newLine();
                 $this->info("Phase 4: Discovering nested relationships (depth: {$deepLevel})...");
-                
+
                 $totalDiscovered = 0;
                 foreach ($models as $modelClass) {
                     $discovered = $this->syncNestedRelations($modelClass, $deepLevel);
                     $totalDiscovered += $discovered;
                 }
-                
+
                 // Count after Phase 4
                 $phase4Columns = ExportModelRelation::where('is_column', true)->count();
                 $phase4Relations = ExportModelRelation::where('is_column', false)->count();
@@ -179,23 +178,23 @@ class ImportModelsCommand extends Command
         // Count total relations in database
         $this->log("\nPerforming final database count...");
         try {
-            $instance = new ExportModelRelation();
+            $instance = new ExportModelRelation;
             $connection = $instance->getConnectionName() ?: 'default';
-            $this->log("Database connection: " . $connection);
-            $this->log("Table name: " . $instance->getTable());
-            $this->log("Transaction level: " . DB::transactionLevel());
+            $this->log('Database connection: '.$connection);
+            $this->log('Table name: '.$instance->getTable());
+            $this->log('Transaction level: '.DB::transactionLevel());
         } catch (\Exception $e) {
-            $this->log("Error getting database info: " . $e->getMessage());
+            $this->log('Error getting database info: '.$e->getMessage());
         }
-        
+
         try {
             // First check if the table exists
             $tableExists = DB::getSchemaBuilder()->hasTable('export_model_relations');
-            $this->log("Table 'export_model_relations' exists: " . ($tableExists ? 'YES' : 'NO'));
-            
-            if (!$tableExists) {
+            $this->log("Table 'export_model_relations' exists: ".($tableExists ? 'YES' : 'NO'));
+
+            if (! $tableExists) {
                 $this->log("ERROR: Table 'export_model_relations' does not exist!");
-                $this->log("Available tables: " . implode(', ', DB::getSchemaBuilder()->getTableListing()));
+                $this->log('Available tables: '.implode(', ', DB::getSchemaBuilder()->getTableListing()));
                 $totalRelations = 0;
                 $totalColumns = 0;
                 $totalModelRelations = 0;
@@ -203,37 +202,37 @@ class ImportModelsCommand extends Command
                 $totalRelations = ExportModelRelation::count();
                 $totalColumns = ExportModelRelation::where('is_column', true)->count();
                 $totalModelRelations = ExportModelRelation::where('is_column', false)->count();
-                
+
                 // Double-check with raw query
                 $rawCount = DB::table('export_model_relations')->count();
                 $this->log("Raw DB count: $rawCount");
             }
         } catch (\Exception $e) {
-            $this->log("Error counting records: " . $e->getMessage());
-            $this->log("Stack trace: " . $e->getTraceAsString());
+            $this->log('Error counting records: '.$e->getMessage());
+            $this->log('Stack trace: '.$e->getTraceAsString());
             $totalRelations = 'ERROR';
             $totalColumns = 'ERROR';
             $totalModelRelations = 'ERROR';
         }
-        
+
         $this->log("\nImport completed at ".date('Y-m-d H:i:s'));
-        $this->log("Database totals:");
+        $this->log('Database totals:');
         $this->log("  - Total export_model_relations: {$totalRelations}");
         $this->log("  - Columns (is_column=true): {$totalColumns}");
         $this->log("  - Relations (is_column=false): {$totalModelRelations}");
-        
+
         $this->newLine();
         $this->info("Import completed. Imported {$imported} models.");
-        $this->info("Database totals:");
+        $this->info('Database totals:');
         $this->info("  - Total export_model_relations: {$totalRelations}");
         $this->info("  - Columns (is_column=true): {$totalColumns}");
         $this->info("  - Relations (is_column=false): {$totalModelRelations}");
-        
+
         // Auto-commit any transactions to persist data
         while (DB::transactionLevel() > 0) {
             DB::commit();
         }
-        
+
         $this->newLine();
         $this->info("Debug log written to: {$this->logFile}");
 
@@ -283,42 +282,44 @@ class ImportModelsCommand extends Command
     protected function syncModelColumns(string $modelClass): void
     {
         $this->log("\n--- Syncing columns for: $modelClass ---");
-        
+
         $exportModel = ExportModel::where('model', $modelClass)->first();
 
         if (! $exportModel) {
             $this->log("No export model found for $modelClass");
+
             return;
         }
 
         $this->log("Found export model with ID: {$exportModel->id}");
 
         // Get model data (columns and relations)
-        $this->log("Transaction level before getModelData: " . DB::transactionLevel());
+        $this->log('Transaction level before getModelData: '.DB::transactionLevel());
         $modelData = $this->inspector->getModelData($modelClass);
-        $this->log("Transaction level after getModelData: " . DB::transactionLevel());
+        $this->log('Transaction level after getModelData: '.DB::transactionLevel());
 
         if (! isset($modelData['columns'])) {
             $this->line("  → No columns data found for {$modelClass}");
-            $this->log("No columns data found");
+            $this->log('No columns data found');
+
             return;
         }
 
         $columns = $modelData['columns'];
-        $this->log("Columns found: " . json_encode($columns));
-        
+        $this->log('Columns found: '.json_encode($columns));
+
         $savedCount = 0;
         $createdCount = 0;
 
         // Import columns
         foreach ($columns as $column) {
             $this->log("\nProcessing column: $column");
-            
+
             try {
-                $this->log("Attempting updateOrCreate with:");
+                $this->log('Attempting updateOrCreate with:');
                 $this->log("  Search: export_model_id={$exportModel->id}, relation=$column");
-                $this->log("  Data: title=" . Str::headline($column) . ", is_column=true, is_collection=false, related_model_id=null");
-                
+                $this->log('  Data: title='.Str::headline($column).', is_column=true, is_collection=false, related_model_id=null');
+
                 // Only update/create columns, don't touch relations
                 $relation = ExportModelRelation::updateOrCreate(
                     [
@@ -332,31 +333,31 @@ class ImportModelsCommand extends Command
                         'related_model_id' => null,
                     ]
                 );
-                
+
                 $savedCount++;
                 if ($relation->wasRecentlyCreated) {
                     $createdCount++;
                 }
-                
+
                 $this->log("SUCCESS: Column saved with ID: {$relation->id}");
-                $this->log("  Was recently created: " . ($relation->wasRecentlyCreated ? 'YES' : 'NO'));
-                
+                $this->log('  Was recently created: '.($relation->wasRecentlyCreated ? 'YES' : 'NO'));
+
                 // Verify it's actually in the database
                 $verify = ExportModelRelation::find($relation->id);
-                if (!$verify) {
-                    $this->log("ERROR: Column was NOT found in database after save!");
+                if (! $verify) {
+                    $this->log('ERROR: Column was NOT found in database after save!');
                 } else {
-                    $this->log("  Verified in database: YES");
+                    $this->log('  Verified in database: YES');
                 }
-                
+
             } catch (\Exception $e) {
-                $this->log("ERROR saving column: " . $e->getMessage());
-                $this->error("Failed to save column {$column}: " . $e->getMessage());
+                $this->log('ERROR saving column: '.$e->getMessage());
+                $this->error("Failed to save column {$column}: ".$e->getMessage());
             }
         }
 
         $this->line('  → '.class_basename($modelClass).': Synced '.count($columns).' columns');
-        $this->log("Total columns processed: " . count($columns) . ", saved: $savedCount, created: $createdCount");
+        $this->log('Total columns processed: '.count($columns).", saved: $savedCount, created: $createdCount");
     }
 
     /**
@@ -377,9 +378,9 @@ class ImportModelsCommand extends Command
         $this->log("Found export model with ID: {$exportModel->id}");
 
         // Get model data (columns and relations)
-        $this->log("Transaction level before getModelData: " . DB::transactionLevel());
+        $this->log('Transaction level before getModelData: '.DB::transactionLevel());
         $modelData = $this->inspector->getModelData($modelClass);
-        $this->log("Transaction level after getModelData: " . DB::transactionLevel());
+        $this->log('Transaction level after getModelData: '.DB::transactionLevel());
         $this->log('Model data keys: '.json_encode(array_keys($modelData)));
 
         if (! isset($modelData['relations'])) {
@@ -429,6 +430,8 @@ class ImportModelsCommand extends Command
                         'title' => Str::headline($relationName),
                         'is_collection' => $relationInfo['is_collection'],
                         'related_model_id' => $relatedExportModel?->id,
+                        'has_pivot' => $relationInfo['has_pivot'] ?? false,
+                        'pivot_columns' => $relationInfo['pivot_columns'] ?? null,
                     ]
                 );
 
@@ -436,19 +439,19 @@ class ImportModelsCommand extends Command
                     $syncedRelations++;
                     $this->log("SUCCESS: Relation saved with ID: {$result->id}");
                     $this->log('  Was recently created: '.($result->wasRecentlyCreated ? 'YES' : 'NO'));
-                    
+
                     // Verify it's actually in the database
                     $verify = ExportModelRelation::find($result->id);
-                    if (!$verify) {
-                        $this->log("ERROR: Relation was NOT found in database after save!");
+                    if (! $verify) {
+                        $this->log('ERROR: Relation was NOT found in database after save!');
                     } else {
-                        $this->log("  Verified in database: YES");
+                        $this->log('  Verified in database: YES');
                         // Double check it's still a relation
                         if ($verify->is_column) {
-                            $this->log("  ERROR: Record was saved but is_column=true!");
+                            $this->log('  ERROR: Record was saved but is_column=true!');
                         }
                     }
-                    
+
                     if (! $relatedExportModel) {
                         $this->line("    ⚠ Relation '{$relationName}' created but related model not found: {$relationInfo['related_model']}");
                         $this->log('WARNING: Related model not found');
@@ -481,22 +484,23 @@ class ImportModelsCommand extends Command
     protected function syncNestedRelations(string $modelClass, int $maxDepth): int
     {
         $this->log("\n--- Syncing nested relations for: $modelClass (max depth: $maxDepth) ---");
-        
+
         $exportModel = ExportModel::where('model', $modelClass)->first();
-        if (!$exportModel) {
+        if (! $exportModel) {
             $this->log("ERROR: Export model not found for $modelClass");
+
             return 0;
         }
 
         // Get nested relation paths from inspector
         $nestedPaths = $this->inspector->getNestedRelationPaths($modelClass, $maxDepth);
-        $this->log("Found " . count($nestedPaths) . " nested paths");
-        
+        $this->log('Found '.count($nestedPaths).' nested paths');
+
         $created = 0;
         $skipped = 0;
         $processedCount = 0;
         $totalPaths = count($nestedPaths);
-        
+
         // Skip creating columns for nested paths by default to reduce volume
         $createNestedColumns = $this->option('deep-columns') ?? false;
 
@@ -507,24 +511,24 @@ class ImportModelsCommand extends Command
             }
 
             $processedCount++;
-            
+
             // Show progress for large datasets
             if ($processedCount % 100 === 0) {
                 $this->info("    Progress: {$processedCount}/{$totalPaths} paths processed...");
             }
 
             $this->log("\nProcessing nested path: $path");
-            
+
             // Check if this nested relation already exists
             $exists = ExportModelRelation::where('export_model_id', $exportModel->id)
                 ->where('relation', $path)
                 ->exists();
 
-            if (!$exists) {
+            if (! $exists) {
                 try {
                     // Find the related export model
                     $relatedExportModel = ExportModel::where('model', $pathInfo['final_model'])->first();
-                    
+
                     // Create the nested relation
                     $relation = ExportModelRelation::create([
                         'export_model_id' => $exportModel->id,
@@ -540,7 +544,7 @@ class ImportModelsCommand extends Command
                         $this->log("SUCCESS: Created nested relation: $path");
                     }
                 } catch (\Exception $e) {
-                    $this->log("ERROR creating nested relation $path: " . $e->getMessage());
+                    $this->log("ERROR creating nested relation $path: ".$e->getMessage());
                 }
             } else {
                 $skipped++;
@@ -552,15 +556,15 @@ class ImportModelsCommand extends Command
                 // Limit columns to prevent explosion
                 $columnLimit = 10;
                 $columnsToProcess = array_slice($pathInfo['final_columns'], 0, $columnLimit);
-                
+
                 foreach ($columnsToProcess as $column) {
                     $columnPath = "{$path}.{$column}";
-                    
+
                     $columnExists = ExportModelRelation::where('export_model_id', $exportModel->id)
                         ->where('relation', $columnPath)
                         ->exists();
 
-                    if (!$columnExists) {
+                    if (! $columnExists) {
                         try {
                             ExportModelRelation::create([
                                 'export_model_id' => $exportModel->id,
@@ -574,14 +578,15 @@ class ImportModelsCommand extends Command
                             $created++;
                             $this->log("SUCCESS: Created nested column: $columnPath");
                         } catch (\Exception $e) {
-                            $this->log("ERROR creating nested column $columnPath: " . $e->getMessage());
+                            $this->log("ERROR creating nested column $columnPath: ".$e->getMessage());
                         }
                     }
                 }
             }
         }
 
-        $this->line('  → ' . class_basename($modelClass) . ': Created ' . $created . ' nested relations/columns, skipped ' . $skipped);
+        $this->line('  → '.class_basename($modelClass).': Created '.$created.' nested relations/columns, skipped '.$skipped);
+
         return $created;
     }
 
