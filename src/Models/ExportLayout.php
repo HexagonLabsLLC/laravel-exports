@@ -30,8 +30,53 @@ class ExportLayout extends Model
     protected $fillable = [
         'export_model_id',
         'name',
+        'title',
         'description',
+        'is_pivot',
+        'pivot_config',
     ];
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_pivot' => 'boolean',
+            'pivot_config' => 'array',
+        ];
+    }
+
+    /**
+     * Check if this layout is a pivot export.
+     */
+    public function isPivot(): bool
+    {
+        return (bool) $this->is_pivot;
+    }
+
+    /**
+     * Get the pivot configuration for this layout.
+     *
+     * Expected structure:
+     * [
+     *     'group_by' => ['relation.column'],       // Primary grouping columns
+     *     'sub_group_by' => ['relation.column'],   // Sub-grouping columns
+     *     'pivot_relation' => 'relation.name',     // Relation for dynamic columns
+     *     'pivot_column' => 'name',                // Column to use for pivot headers
+     *     'value_relation' => 'table',             // Source for aggregated values
+     *     'value_column' => 'amount',              // Column to aggregate
+     *     'aggregation' => 'sum',                  // sum, count, avg, min, max
+     *     'output_format' => 'flat',               // flat or grouped
+     *     'pivot_filter_param' => 'type_ids',      // Request param for filtering pivot columns
+     * ]
+     */
+    public function getPivotConfig(): array
+    {
+        return $this->pivot_config ?? [];
+    }
 
     public function exportModel(): BelongsTo
     {
