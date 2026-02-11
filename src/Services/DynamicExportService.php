@@ -5,8 +5,10 @@ namespace HexagonLabsLLC\LaravelExports\Services;
 use HexagonLabsLLC\LaravelExports\Enums\OperatorType;
 use HexagonLabsLLC\LaravelExports\Exports\ExportFactory;
 use HexagonLabsLLC\LaravelExports\Helpers\ModelRelationInspector;
+use HexagonLabsLLC\LaravelExports\Jobs\ProcessExportJob;
 use HexagonLabsLLC\LaravelExports\Models\ExportColumn;
 use HexagonLabsLLC\LaravelExports\Models\ExportFilter;
+use HexagonLabsLLC\LaravelExports\Models\ExportFunction;
 use HexagonLabsLLC\LaravelExports\Models\ExportLayout;
 use HexagonLabsLLC\LaravelExports\Models\ExportModel;
 use HexagonLabsLLC\LaravelExports\Models\ExportModelRelation;
@@ -37,10 +39,10 @@ class DynamicExportService
 
     protected ?ModelRelationInspector $inspector = null;
 
-    public function __construct()
+    public function __construct(?ModelRelationInspector $inspector = null)
     {
         $this->initializeCollections();
-        $this->inspector = new ModelRelationInspector;
+        $this->inspector = $inspector ?? app(ModelRelationInspector::class);
     }
 
     protected function initializeCollections(): void
@@ -58,19 +60,29 @@ class DynamicExportService
     {
         $this->loadLayout($layout);
         $this->requestData = $requestData;
-        // Build the base query
+
+        // Check if this is a pivot layout
+        if ($this->isPivotLayout()) {
+            return $this->executePivotExport();
+        }
+
+        // Standard export flow
         $query = $this->buildQuery();
-        // Apply filters
         $query = $this->applyFilters($query);
-        // Apply eager loading for relations
         $query = $this->applyEagerLoading($query);
-        // Apply sorts
         $query = $this->applySorts($query);
-        // Execute query and get results
         $results = $query->get();
 
-        // Process results according to column configuration
         return $this->processResults($results);
+    }
+
+    /**
+     * Check if current layout is a pivot export
+     */
+    protected function isPivotLayout(): bool
+    {
+        return $this->layout && method_exists($this->layout, 'isPivot')
+            && $this->layout->isPivot();
     }
 
     /**
@@ -615,7 +627,7 @@ class DynamicExportService
                 }
             }
         });
-        // Apply regular relations
+        // Apply regular relations (with pivot columns where needed)
         if (! empty($relationsToLoad)) {
             $uniqueRelations = array_unique($relationsToLoad);
             // Sort by depth to ensure parent relations are loaded before children
@@ -623,7 +635,34 @@ class DynamicExportService
                 return substr_count($a, '.') <=> substr_count($b, '.');
             });
 
-            $query->with($uniqueRelations);
+            // Check for relations that need pivot columns
+            $withPivot = $this->getRelationsWithPivot($uniqueRelations);
+
+            if (! empty($withPivot)) {
+                // Load relations with pivot columns using closures
+                $relationsWithCallbacks = [];
+                $simpleRelations = [];
+
+                foreach ($uniqueRelations as $relationPath) {
+                    if (isset($withPivot[$relationPath])) {
+                        $pivotColumns = $withPivot[$relationPath];
+                        $relationsWithCallbacks[$relationPath] = function ($q) use ($pivotColumns) {
+                            $q->withPivot($pivotColumns);
+                        };
+                    } else {
+                        $simpleRelations[] = $relationPath;
+                    }
+                }
+
+                if (! empty($simpleRelations)) {
+                    $query->with($simpleRelations);
+                }
+                if (! empty($relationsWithCallbacks)) {
+                    $query->with($relationsWithCallbacks);
+                }
+            } else {
+                $query->with($uniqueRelations);
+            }
         }
         // Apply constrained relations
         foreach ($constrainedRelations as $relationPath => $constraints) {
@@ -1177,6 +1216,21 @@ class DynamicExportService
         $relationPath = $column->modelRelation->relation;
         $valuePath = $column->value_path;
 
+        // Check for pivot path notation (e.g., 'roles.pivot.assigned_at')
+        if ($valuePath && $this->containsPivotPath($valuePath)) {
+            $pivotValue = $this->extractPivotValueFromPath($model, $valuePath);
+
+            if (config('app.debug')) {
+                Log::info('Pivot value extraction:', [
+                    'column_title' => $column->title,
+                    'value_path' => $valuePath,
+                    'extracted_value' => $pivotValue,
+                ]);
+            }
+
+            return $pivotValue;
+        }
+
         // Debug logging - enhanced for user relations
         if (config('app.debug') && (Str::contains($relationPath, 'worker') || Str::contains($relationPath, 'user'))) {
             Log::info('Resolving relation:', [
@@ -1265,8 +1319,9 @@ class DynamicExportService
         // If it's a model/object and we don't have a specific value path,
         // try to get a meaningful value (like name, title, or convert to string)
         if (is_object($relationData) && ! is_iterable($relationData)) {
-            // Try common attribute names
-            foreach (['name', 'title', 'value', 'label'] as $attr) {
+            // Try common attribute names from config
+            $fallbackAttributes = config('laravel-exports.fallback_attributes', ['name', 'title', 'value', 'label']);
+            foreach ($fallbackAttributes as $attr) {
                 if (isset($relationData->$attr)) {
                     return $relationData->$attr;
                 }
@@ -1590,16 +1645,20 @@ class DynamicExportService
         $this->loadLayout($layout);
         $this->requestData = $requestData;
 
-        // Build the base query
+        // Handle pivot layouts (no chunking - pivot exports are aggregated)
+        if ($this->isPivotLayout()) {
+            $results = $this->executePivotExport();
+            if ($callback) {
+                $callback($results);
+            }
+
+            return;
+        }
+
+        // Standard chunked export flow
         $query = $this->buildQuery();
-
-        // Apply filters
         $query = $this->applyFilters($query);
-
-        // Apply eager loading for relations
         $query = $this->applyEagerLoading($query);
-
-        // Apply sorts
         $query = $this->applySorts($query);
 
         // Process in chunks
@@ -2018,5 +2077,594 @@ class DynamicExportService
                 $this->buildNestedQuery($q, $remainingRelations, $column, $operator, $value);
             });
         }
+    }
+
+    /**
+     * Get relations that have pivot columns defined.
+     *
+     * @return array<string, array> Map of relation path to pivot columns
+     */
+    protected function getRelationsWithPivot(array $relationPaths): array
+    {
+        $withPivot = [];
+
+        foreach ($relationPaths as $relationPath) {
+            // Get the first segment of the path (the immediate relation)
+            $segments = explode('.', $relationPath);
+            $firstSegment = $segments[0];
+
+            // Check if this relation has pivot columns in our model relations
+            $modelRelation = ExportModelRelation::where('export_model_id', $this->exportModel->id)
+                ->where('relation', $firstSegment)
+                ->where('is_column', false)
+                ->where('has_pivot', true)
+                ->first();
+
+            if ($modelRelation && ! empty($modelRelation->pivot_columns)) {
+                $withPivot[$firstSegment] = $modelRelation->pivot_columns;
+            }
+        }
+
+        return $withPivot;
+    }
+
+    /**
+     * Extract a pivot attribute value from a model.
+     */
+    protected function extractPivotValue(Model $item, string $attribute): mixed
+    {
+        return $item->pivot?->{$attribute};
+    }
+
+    /**
+     * Check if a value path contains a pivot reference.
+     */
+    protected function containsPivotPath(string $valuePath): bool
+    {
+        return Str::contains($valuePath, '.pivot.');
+    }
+
+    /**
+     * Parse a pivot path into relation path and pivot attribute.
+     *
+     * @return array{relation: string, attribute: string}|null
+     */
+    protected function parsePivotPath(string $valuePath): ?array
+    {
+        if (! $this->containsPivotPath($valuePath)) {
+            return null;
+        }
+
+        // Split on '.pivot.'
+        $parts = explode('.pivot.', $valuePath, 2);
+
+        if (count($parts) !== 2) {
+            return null;
+        }
+
+        return [
+            'relation' => $parts[0],
+            'attribute' => $parts[1],
+        ];
+    }
+
+    /**
+     * Extract pivot value from a collection or single related item.
+     */
+    protected function extractPivotValueFromPath(Model $model, string $valuePath): mixed
+    {
+        $parsed = $this->parsePivotPath($valuePath);
+
+        if (! $parsed) {
+            return null;
+        }
+
+        $relationPath = $parsed['relation'];
+        $pivotAttribute = $parsed['attribute'];
+
+        // Get the related data
+        $related = data_get($model, $relationPath);
+
+        if ($related === null) {
+            return null;
+        }
+
+        // Handle collection of related items
+        if ($related instanceof \Illuminate\Database\Eloquent\Collection || $related instanceof Collection) {
+            return $related->map(function ($item) use ($pivotAttribute) {
+                return $this->extractPivotValue($item, $pivotAttribute);
+            });
+        }
+
+        // Handle single related item
+        if ($related instanceof Model) {
+            return $this->extractPivotValue($related, $pivotAttribute);
+        }
+
+        return null;
+    }
+
+    /**
+     * Queue an export for background processing.
+     *
+     * @return string Export ID for status tracking
+     */
+    public function queueExport(
+        ExportLayout|string $layout,
+        string $format = 'csv',
+        array $requestData = [],
+        array $options = []
+    ): string {
+        // Get layout ID
+        $layoutId = $layout instanceof ExportLayout ? $layout->id : $layout;
+
+        // Generate export ID
+        $exportId = (string) Str::uuid();
+
+        // Get config values
+        $queue = config('laravel-exports.queue', 'exports');
+        $chunkSize = config('laravel-exports.chunk_size', 1000);
+        $disk = $options['disk'] ?? config('laravel-exports.disk', 'local');
+        $path = $options['path'] ?? config('laravel-exports.path', 'exports');
+
+        // Dispatch the job
+        ProcessExportJob::dispatch(
+            $exportId,
+            $layoutId,
+            $format,
+            $requestData,
+            $options,
+            $chunkSize,
+            $disk,
+            $path
+        )->onQueue($queue);
+
+        return $exportId;
+    }
+
+    /**
+     * Get the status of a queued export.
+     */
+    public function getExportStatus(string $exportId): ?array
+    {
+        return ProcessExportJob::getStatus($exportId);
+    }
+
+    /**
+     * Execute pivot export with dynamic configuration
+     */
+    protected function executePivotExport(): Collection
+    {
+        $config = $this->layout->getPivotConfig();
+
+        // Build base query with filters
+        $query = $this->buildQuery();
+        $query = $this->applyFilters($query);
+
+        // Build pivot query dynamically from config
+        $pivotQuery = $this->buildPivotQuery($query, $config);
+
+        // Execute and get raw aggregated data
+        // Use toBase() to avoid Eloquent model casting (e.g., datetime casts interfering with formatted week strings)
+        $rawData = $pivotQuery->toBase()->get();
+
+        // Get pivot column from layout
+        $pivotColumn = $this->columns->firstWhere('is_expanded', true);
+        $pivotExpansionData = $pivotColumn ? ($pivotColumn->expansion_data ?? []) : [];
+
+        // Determine dynamic columns
+        $dynamicColumns = $this->determinePivotColumns($rawData, $config);
+
+        // Transform to pivot format
+        return $this->transformPivotResults($rawData, $dynamicColumns, $config, $pivotExpansionData);
+    }
+
+    /**
+     * Build pivot query dynamically from configuration
+     */
+    protected function buildPivotQuery(Builder $baseQuery, array $config): Builder
+    {
+        $table = $this->exportModel->model::query()->getModel()->getTable();
+
+        // Get relations from config and resolve joins dynamically
+        $groupByRelations = $config['group_by'] ?? [];
+        $subGroupByRelations = $config['sub_group_by'] ?? [];
+        $pivotRelation = $config['pivot_relation'] ?? null;
+        $valueRelation = $config['value_relation'] ?? $table;
+        $valueColumn = $config['value_column'] ?? 'id';
+        $aggregation = $config['aggregation'] ?? 'count';
+        $groupByFormat = $config['group_by_format'] ?? null;
+
+        // Build select and group by clauses dynamically
+        $selects = [];
+        $groupBys = [];
+
+        // Add group by columns
+        foreach ($groupByRelations as $relation) {
+            $resolved = $this->resolvePivotRelationPath($relation);
+            $baseQuery = $this->applyJoinForRelation($baseQuery, $relation);
+
+            // Apply formatting if specified (e.g., week_year for dates)
+            if ($groupByFormat === 'week_year') {
+                // Check week start day preference (default is ISO Monday-start)
+                $weekStart = $config['week_start'] ?? 'monday';
+
+                if ($weekStart === 'sunday') {
+                    // Use YEARWEEK with mode 0 for Sunday-Saturday weeks
+                    // Format: YEARWEEK returns YYYYWW, convert to YYYY-Www
+                    $selectExpr = "CONCAT(LEFT(YEARWEEK({$resolved['table']}.{$resolved['column']}, 0), 4), '-W', RIGHT(YEARWEEK({$resolved['table']}.{$resolved['column']}, 0), 2))";
+                } else {
+                    // Use DATE_FORMAT with %x (ISO year) and %v (ISO week) for Monday-Sunday weeks
+                    // This correctly handles year boundaries (e.g., Dec 29-31 may be Week 1 of next year)
+                    $selectExpr = "DATE_FORMAT({$resolved['table']}.{$resolved['column']}, '%x-W%v')";
+                }
+
+                $selects[] = DB::raw("{$selectExpr} as {$resolved['alias']}");
+                $groupBys[] = $selectExpr; // Store as string for groupBy/orderBy
+            } else {
+                $selects[] = DB::raw("{$resolved['table']}.{$resolved['column']} as {$resolved['alias']}");
+                $groupBys[] = "{$resolved['table']}.{$resolved['column']}";
+            }
+        }
+
+        // Add sub-group columns
+        foreach ($subGroupByRelations as $relation) {
+            $resolved = $this->resolvePivotRelationPath($relation);
+            $selects[] = DB::raw("{$resolved['table']}.{$resolved['column']} as {$resolved['alias']}");
+            $groupBys[] = "{$resolved['table']}.{$resolved['column']}";
+            $baseQuery = $this->applyJoinForRelation($baseQuery, $relation);
+        }
+
+        // Add pivot column
+        if ($pivotRelation) {
+            $pivotResolved = $this->resolvePivotRelationPath($pivotRelation);
+            $pivotColumnName = $config['pivot_column'] ?? 'id';
+            $selects[] = DB::raw("{$pivotResolved['table']}.id as pivot_id");
+            $selects[] = DB::raw("{$pivotResolved['table']}.{$pivotColumnName} as pivot_value");
+            $groupBys[] = "{$pivotResolved['table']}.id";
+            $groupBys[] = "{$pivotResolved['table']}.{$pivotColumnName}";
+            $baseQuery = $this->applyJoinForRelation($baseQuery, $pivotRelation);
+        }
+
+        // Add aggregation
+        $valueResolved = $this->resolvePivotRelationPath($valueRelation);
+        $aggFunction = strtoupper($aggregation);
+        $selects[] = DB::raw("{$aggFunction}({$valueResolved['table']}.{$valueColumn}) as aggregated_value");
+
+        return $baseQuery
+            ->select($selects)
+            ->groupByRaw(implode(', ', $groupBys))
+            ->orderByRaw(implode(', ', $groupBys));
+    }
+
+    /**
+     * Resolve a relation path to table/column/alias for pivot queries
+     */
+    protected function resolvePivotRelationPath(string $path): array
+    {
+        $parts = explode('.', $path);
+        $model = $this->exportModel->model;
+
+        $currentModel = new $model;
+        $table = $currentModel->getTable();
+
+        foreach ($parts as $index => $part) {
+            if ($index === count($parts) - 1) {
+                // Last part is the column
+                return [
+                    'table' => $table,
+                    'column' => $part,
+                    'alias' => str_replace('.', '_', $path),
+                ];
+            }
+
+            // Navigate through relation
+            if (method_exists($currentModel, $part)) {
+                $relation = $currentModel->$part();
+                $relatedModel = $relation->getRelated();
+                $table = $relatedModel->getTable();
+                $currentModel = $relatedModel;
+            }
+        }
+
+        return [
+            'table' => $table,
+            'column' => end($parts),
+            'alias' => str_replace('.', '_', $path),
+        ];
+    }
+
+    /**
+     * Apply join for a relation path in pivot queries
+     */
+    protected function applyJoinForRelation(Builder $query, string $path): Builder
+    {
+        $parts = explode('.', $path);
+        $model = $this->exportModel->model;
+        $currentModel = new $model;
+        $previousTable = $currentModel->getTable();
+
+        foreach ($parts as $index => $part) {
+            // Stop before the last part (which is the column)
+            if ($index === count($parts) - 1) {
+                break;
+            }
+
+            if (method_exists($currentModel, $part)) {
+                $relation = $currentModel->$part();
+                $relatedModel = $relation->getRelated();
+                $relatedTable = $relatedModel->getTable();
+
+                // Check if already joined
+                $existingJoins = $query->getQuery()->joins ?? [];
+                $alreadyJoined = collect($existingJoins)->contains(function ($join) use ($relatedTable) {
+                    return $join->table === $relatedTable;
+                });
+
+                if (! $alreadyJoined) {
+                    // Determine join type and keys based on relation type
+                    if ($relation instanceof \Illuminate\Database\Eloquent\Relations\BelongsTo) {
+                        $foreignKey = $relation->getForeignKeyName();
+                        $ownerKey = $relation->getOwnerKeyName();
+                        $query->leftJoin($relatedTable, "{$previousTable}.{$foreignKey}", '=', "{$relatedTable}.{$ownerKey}");
+                    } elseif ($relation instanceof \Illuminate\Database\Eloquent\Relations\HasOne ||
+                              $relation instanceof \Illuminate\Database\Eloquent\Relations\HasMany) {
+                        $foreignKey = $relation->getForeignKeyName();
+                        $ownerKey = $relation->getLocalKeyName();
+                        $query->leftJoin($relatedTable, "{$previousTable}.{$ownerKey}", '=', "{$relatedTable}.{$foreignKey}");
+                    } elseif ($relation instanceof \Illuminate\Database\Eloquent\Relations\BelongsToMany) {
+                        // Handle many-to-many through pivot table
+                        $pivotTable = $relation->getTable();
+                        $parentKey = $relation->getParentKeyName();
+                        $foreignPivotKey = $relation->getForeignPivotKeyName();
+                        $relatedPivotKey = $relation->getRelatedPivotKeyName();
+                        $relatedKey = $relation->getRelatedKeyName();
+
+                        // Join pivot table
+                        $query->leftJoin($pivotTable, "{$previousTable}.{$parentKey}", '=', "{$pivotTable}.{$foreignPivotKey}");
+                        // Join related table
+                        $query->leftJoin($relatedTable, "{$pivotTable}.{$relatedPivotKey}", '=', "{$relatedTable}.{$relatedKey}");
+                    }
+                }
+
+                $previousTable = $relatedTable;
+                $currentModel = $relatedModel;
+            }
+        }
+
+        return $query;
+    }
+
+    /**
+     * Determine dynamic pivot columns from data
+     */
+    protected function determinePivotColumns(Collection $data, array $config): Collection
+    {
+        // If specific IDs are provided in request, filter to those
+        $filterParam = $config['pivot_filter_param'] ?? null;
+        if ($filterParam && ! empty($this->requestData[$filterParam])) {
+            $ids = is_array($this->requestData[$filterParam])
+                ? $this->requestData[$filterParam]
+                : array_map('trim', explode(',', $this->requestData[$filterParam]));
+
+            // Get from pivot relation model
+            $pivotRelation = $config['pivot_relation'] ?? null;
+            if ($pivotRelation) {
+                $pivotModel = $this->getModelFromRelation($pivotRelation);
+                if ($pivotModel) {
+                    return $pivotModel::whereIn('id', $ids)
+                        ->orderBy($config['pivot_column'] ?? 'name')
+                        ->pluck($config['pivot_column'] ?? 'name', 'id');
+                }
+            }
+        }
+
+        // Otherwise get from data
+        return $data->pluck('pivot_value', 'pivot_id')->unique()->sort();
+    }
+
+    /**
+     * Get the model class from a relation path
+     */
+    protected function getModelFromRelation(string $path): ?string
+    {
+        $parts = explode('.', $path);
+        $model = $this->exportModel->model;
+        $currentModel = new $model;
+
+        foreach ($parts as $index => $part) {
+            // Stop before the last part (which is the column)
+            if ($index === count($parts) - 1) {
+                break;
+            }
+
+            if (method_exists($currentModel, $part)) {
+                $relation = $currentModel->$part();
+                $currentModel = $relation->getRelated();
+            } else {
+                return null;
+            }
+        }
+
+        return get_class($currentModel);
+    }
+
+    /**
+     * Transform raw pivot data into output rows
+     */
+    protected function transformPivotResults(
+        Collection $rawData,
+        Collection $dynamicColumns,
+        array $config,
+        array $pivotExpansionData
+    ): Collection {
+        $groupBy = $config['group_by'] ?? [];
+        $subGroupBy = $config['sub_group_by'] ?? [];
+
+        // Get formatting function if specified
+        $formatFunction = null;
+        if (! empty($pivotExpansionData['format_function'])) {
+            $formatFunction = ExportFunction::find($pivotExpansionData['format_function']);
+        }
+
+        // Build pivoted structure
+        $pivoted = [];
+        foreach ($rawData as $row) {
+            // Build group key from group_by relations
+            $groupKey = $this->buildPivotGroupKey($row, $groupBy);
+            $subGroupKey = $this->buildPivotGroupKey($row, $subGroupBy);
+
+            if (! isset($pivoted[$groupKey])) {
+                $pivoted[$groupKey] = [];
+            }
+
+            if (! isset($pivoted[$groupKey][$subGroupKey])) {
+                $pivoted[$groupKey][$subGroupKey] = [
+                    'data' => $this->extractPivotGroupData($row, $subGroupBy),
+                    'values' => [],
+                    'total' => 0,
+                ];
+            }
+
+            $value = (float) $row->aggregated_value;
+            $pivotId = $row->pivot_id;
+            $pivoted[$groupKey][$subGroupKey]['values'][$pivotId] = $value;
+
+            // Only add to total if this pivot column is displayed
+            if ($dynamicColumns->has($pivotId)) {
+                $pivoted[$groupKey][$subGroupKey]['total'] += $value;
+            }
+        }
+
+        // Convert to flat rows
+        return $this->convertPivotToRows($pivoted, $dynamicColumns, $formatFunction, $config, $groupBy, $subGroupBy);
+    }
+
+    /**
+     * Build group key from row and relation paths
+     */
+    protected function buildPivotGroupKey(object $row, array $relations): string
+    {
+        $parts = [];
+        foreach ($relations as $relation) {
+            $alias = str_replace('.', '_', $relation);
+            $parts[] = $row->$alias ?? '';
+        }
+
+        return implode('_', $parts);
+    }
+
+    /**
+     * Extract group data from row
+     */
+    protected function extractPivotGroupData(object $row, array $relations): array
+    {
+        $data = [];
+        foreach ($relations as $relation) {
+            $alias = str_replace('.', '_', $relation);
+            // Use same key format as convertPivotToRows lookup: strtolower(header)
+            // where header = ucfirst(str_replace('.', ' ', $relation))
+            $headerKey = strtolower(str_replace('.', ' ', $relation));
+            $data[$headerKey] = $row->$alias ?? '';
+        }
+
+        return $data;
+    }
+
+    /**
+     * Convert pivoted data to output rows
+     */
+    protected function convertPivotToRows(
+        array $pivoted,
+        Collection $dynamicColumns,
+        ?ExportFunction $formatFunction,
+        array $config,
+        array $groupBy,
+        array $subGroupBy
+    ): Collection {
+        $rows = [];
+        $outputFormat = $config['output_format'] ?? 'flat';
+        $isGrouped = $outputFormat === 'grouped';
+
+        // Build static column headers (use custom headers from config if provided)
+        $customGroupHeaders = $config['group_by_headers'] ?? [];
+        $customSubGroupHeaders = $config['sub_group_by_headers'] ?? [];
+
+        $groupHeaders = array_map(function ($r, $i) use ($customGroupHeaders) {
+            return $customGroupHeaders[$i] ?? ucfirst(str_replace('.', ' ', $r));
+        }, $groupBy, array_keys($groupBy));
+
+        $subGroupHeaders = array_map(function ($r, $i) use ($customSubGroupHeaders) {
+            return $customSubGroupHeaders[$i] ?? ucfirst(str_replace('.', ' ', $r));
+        }, $subGroupBy, array_keys($subGroupBy));
+
+        // Check if we have actual pivot columns (filter out empty/null keys)
+        $hasPivotColumns = $dynamicColumns->filter(fn($name, $id) => !empty($name) && !empty($id))->isNotEmpty();
+
+        // Get custom total header from config (default: 'Total')
+        $totalHeader = $config['total_header'] ?? 'Total';
+
+        foreach ($pivoted as $groupKey => $subGroups) {
+            // Add group header row if grouped format
+            if ($isGrouped && count($groupBy) > 0) {
+                $headerRow = [];
+                $groupParts = explode('_', $groupKey);
+                foreach ($groupHeaders as $i => $header) {
+                    $headerRow[$header] = $groupParts[$i] ?? '';
+                }
+                foreach ($subGroupHeaders as $header) {
+                    $headerRow[$header] = '';
+                }
+                // Only add dynamic column headers if we have pivot columns
+                if ($hasPivotColumns) {
+                    foreach ($dynamicColumns as $name) {
+                        $headerRow[$name] = '';
+                    }
+                }
+                $headerRow[$totalHeader] = '';
+                $rows[] = $headerRow;
+            }
+
+            // Add sub-group rows
+            foreach ($subGroups as $subGroupKey => $item) {
+                $row = [];
+
+                // Add group columns (empty if grouped format)
+                foreach ($groupHeaders as $i => $header) {
+                    $row[$header] = $isGrouped ? '' : (explode('_', $groupKey)[$i] ?? '');
+                }
+
+                // Add sub-group columns
+                foreach ($subGroupHeaders as $header) {
+                    $row[$header] = $item['data'][strtolower($header)] ?? '';
+                }
+
+                // Only add dynamic columns if we have pivot columns
+                if ($hasPivotColumns) {
+                    foreach ($dynamicColumns as $pivotId => $name) {
+                        $value = $item['values'][$pivotId] ?? 0;
+                        $row[$name] = $this->formatPivotValue($value, $formatFunction);
+                    }
+                }
+
+                // Add total
+                $row[$totalHeader] = $this->formatPivotValue($item['total'], $formatFunction);
+                $rows[] = $row;
+            }
+        }
+
+        return collect($rows);
+    }
+
+    /**
+     * Format pivot value using function if available
+     */
+    protected function formatPivotValue(float $value, ?ExportFunction $function): string
+    {
+        if ($function && is_callable($function->callable)) {
+            return call_user_func($function->callable, $value);
+        }
+
+        return number_format($value, 2);
     }
 }
