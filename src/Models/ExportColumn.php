@@ -43,22 +43,33 @@ class ExportColumn extends Model
         'omit_on_empty',
     ];
 
-    protected $casts = [
-        'export_function_values' => 'array',
-        'export_filter_values' => 'array',
-        'is_expanded' => 'boolean',
-        'omit_on_empty' => 'boolean',
-        'expansion_data' => 'array',
-    ];
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'export_function_values' => 'array',
+            'export_filter_values' => 'array',
+            'is_expanded' => 'boolean',
+            'omit_on_empty' => 'boolean',
+            'expansion_data' => 'array',
+        ];
+    }
 
     public function layout(): BelongsTo
     {
         return $this->belongsTo(ExportLayout::class, 'export_layout_id');
     }
 
+    /**
+     * @deprecated Use modelRelation() instead for consistency with other models
+     */
     public function relation(): BelongsTo
     {
-        return $this->belongsTo(ExportModelRelation::class, 'export_model_relation_id');
+        return $this->modelRelation();
     }
 
     public function modelRelation(): BelongsTo
