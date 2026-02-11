@@ -11,10 +11,10 @@ return new class extends Migration
         Schema::table('export_filters', function (Blueprint $table) {
             // Drop the foreign key constraint first
             $table->dropForeign(['export_relation_id']);
-            
+
             // Rename the column
             $table->renameColumn('export_relation_id', 'export_model_relation_id');
-            
+
             // Re-add the foreign key constraint with the new column name
             $table->foreign('export_model_relation_id')
                 ->references('id')
@@ -28,10 +28,10 @@ return new class extends Migration
         Schema::table('export_filters', function (Blueprint $table) {
             // Drop the foreign key constraint
             $table->dropForeign(['export_model_relation_id']);
-            
+
             // Rename the column back
             $table->renameColumn('export_model_relation_id', 'export_relation_id');
-            
+
             // Re-add the foreign key constraint with the old column name
             $table->foreign('export_relation_id')
                 ->references('id')
