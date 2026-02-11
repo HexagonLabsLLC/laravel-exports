@@ -33,7 +33,15 @@ class ExportFunction extends Model
         'metadata',
     ];
 
-    protected $casts = [
-        'metadata' => 'array',
-    ];
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'metadata' => 'array',
+        ];
+    }
 }
