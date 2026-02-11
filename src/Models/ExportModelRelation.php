@@ -34,12 +34,24 @@ class ExportModelRelation extends Model
         'related_model_id',
         'is_column',
         'is_collection',
+        'has_pivot',
+        'pivot_columns',
     ];
 
-    protected $casts = [
-        'is_column' => 'boolean',
-        'is_collection' => 'boolean',
-    ];
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_column' => 'boolean',
+            'is_collection' => 'boolean',
+            'has_pivot' => 'boolean',
+            'pivot_columns' => 'array',
+        ];
+    }
 
     public function getInstanceAttribute(): Model
     {
@@ -64,33 +76,29 @@ class ExportModelRelation extends Model
      * 1. Start from the current model
      * 2. Find the 'workItem' relation
      * 3. From that related model, find the 'workOrder' relation
-     *
-     * @param Builder $query
-     * @param string $nestedPath
-     * @return Builder
      */
     public function scopeWhereNested(Builder $query, string $nestedPath): Builder
     {
         $segments = explode('.', $nestedPath);
-        
+
         // If it's a single segment, just match the relation field
         if (count($segments) === 1) {
             return $query->where('relation', $segments[0]);
         }
-        
+
         // For nested paths, we start from the first segment and traverse forward
         $firstSegment = array_shift($segments);
-        
+
         // First, filter to relations matching the first segment
         $query->where('relation', $firstSegment);
-        
+
         // Then traverse through each subsequent segment
         foreach ($segments as $segment) {
             $query->whereHas('relatedModel.relations', function (Builder $subQuery) use ($segment) {
                 $subQuery->where('relation', $segment);
             });
         }
-        
+
         return $query;
     }
 }
