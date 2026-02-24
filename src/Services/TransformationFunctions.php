@@ -37,6 +37,17 @@ class TransformationFunctions
                 ],
             ],
             [
+                'name' => 'Format Timestamp',
+                'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::formatTimestamp',
+                'parameter_count' => 3,
+                'value_parameter_index' => 0,
+                'metadata' => [
+                    'description' => 'Format a timestamp with timezone conversion',
+                    'parameters' => ['date', 'format', 'timezone'],
+                    'example' => 'formatTimestamp($date, "Y-m-d H:i:s", "America/New_York")',
+                ],
+            ],
+            [
                 'name' => 'Date Difference',
                 'callable' => 'HexagonLabsLLC\LaravelExports\Services\TransformationFunctions::dateDifference',
                 'parameter_count' => 3,
@@ -278,6 +289,19 @@ class TransformationFunctions
 
         try {
             return Carbon::parse($date)->format($format);
+        } catch (\Exception $e) {
+            return $date;
+        }
+    }
+
+    public static function formatTimestamp($date, $format = 'Y-m-d H:i:s', $timezone = 'UTC')
+    {
+        if (empty($date)) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($date)->timezone($timezone)->format($format);
         } catch (\Exception $e) {
             return $date;
         }
