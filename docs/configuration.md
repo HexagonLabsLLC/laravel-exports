@@ -212,6 +212,29 @@ EXPORT_CHUNK_SIZE=1000
 
 Smaller chunks use less memory but increase processing time. Larger chunks are faster but use more memory.
 
+## Value Extraction
+
+Configure the attributes the package falls back to when it needs to extract a
+scalar from an Eloquent Model without an explicit `value_path`. This applies in
+two places:
+
+- The final-value fallback when a column's `value_path` resolves to a Model
+  instance.
+- Collection-filter comparisons, where the value being compared against may be
+  a related Model and needs to be reduced to a comparable scalar.
+
+```php
+// Ordered list of attributes to check on a related Model
+'fallback_attributes' => ['name', 'title', 'value', 'label'],
+```
+
+The first attribute in the list that exists on the Model wins. Override the
+list to match your own domain conventions:
+
+```php
+'fallback_attributes' => ['display_name', 'label', 'code', 'name'],
+```
+
 ## Complete Configuration File
 
 ```php
@@ -291,6 +314,14 @@ return [
     */
 
     'chunk_size' => env('EXPORT_CHUNK_SIZE', 1000),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Value Extraction Configuration
+    |--------------------------------------------------------------------------
+    */
+
+    'fallback_attributes' => ['name', 'title', 'value', 'label'],
 ];
 ```
 

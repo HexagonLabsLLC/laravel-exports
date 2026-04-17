@@ -22,6 +22,14 @@ php artisan export:import-models \
     --namespace=App\\Domain\\Models
 ```
 
+`--path` accepts either a path relative to `base_path()` or an absolute path, which is useful for models that live outside the Laravel app root (shared packages, symlinked directories, etc.):
+
+```bash
+php artisan export:import-models \
+    --path=/srv/shared/packages/billing/src/Models \
+    --namespace=Company\\Billing\\Models
+```
+
 ### Filter Models
 
 Import only specific models:

@@ -14,7 +14,7 @@ php artisan export:import-models [options]
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--path` | Directory to scan | `app/Models` |
+| `--path` | Directory to scan (relative to `base_path()` or absolute) | `app/Models` |
 | `--namespace` | Base namespace | `App\Models` |
 | `--filter` | File pattern filter | `*` |
 | `--omit` | Models to exclude from relation inspection | (none) |
