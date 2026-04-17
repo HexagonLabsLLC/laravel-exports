@@ -488,6 +488,11 @@ class DynamicExportService
                 $query->$method($column);
                 break;
 
+            case 'like':
+                // whereLike expects (column, value) — not (column, operator, value)
+                $query->$method($column, $value);
+                break;
+
             case 'json_contains':
                 // JSON contains - expects column and value
                 $query->$method($column, $value);
@@ -664,52 +669,25 @@ class DynamicExportService
                 $query->with($uniqueRelations);
             }
         }
-        // Apply constrained relations
+        // Apply constrained relations. Load the relation without SQL constraints —
+        // the relation-operator filters are applied at the PHP level in
+        // extractCollectionValue(). Eager-load any sub-relations the PHP filter
+        // will compare against to avoid N+1 queries.
+        $constrainedRelationsToLoad = [];
         foreach ($constrainedRelations as $relationPath => $constraints) {
-            // Skip if somehow we got a null relation path
             if (! $relationPath) {
                 continue;
             }
-            // Group constraints by their filter configuration
-            $groupedConstraints = [];
-
+            $constrainedRelationsToLoad[] = $relationPath;
             foreach ($constraints as $constraint) {
                 $filter = $constraint['filter'];
-                $value = $constraint['values'];
-
-                if ($filter->relation) {
-                    $key = $filter->relation->relation.'|'.$filter->operator.'|'.$filter->logical_operator;
-                    if (! isset($groupedConstraints[$key])) {
-                        $groupedConstraints[$key] = [
-                            'relation' => $filter->relation->relation,
-                            'operator' => $filter->operator,
-                            'logical_operator' => $filter->logical_operator,
-                            'values' => [],
-                        ];
-                    }
-                    $groupedConstraints[$key]['values'][] = $value;
+                if ($filter->relation && ! $filter->relation->is_column) {
+                    $constrainedRelationsToLoad[] = $relationPath.'.'.$filter->relation->relation;
                 }
             }
-            // Apply the constraints using whereRelation
-            $query->with([$relationPath => function ($q) use ($groupedConstraints) {
-                foreach ($groupedConstraints as $config) {
-                    $relation = $config['relation'];
-                    $operator = '='; // Default operator for the nested relation
-                    $isOr = strtolower($config['logical_operator']) === 'or';
-
-                    if (count($config['values']) === 1) {
-                        // Single value constraint
-                        $method = $isOr ? 'orWhereRelation' : 'whereRelation';
-                        $q->$method($relation, 'title', $operator, $config['values'][0]);
-                    } else {
-                        // Multiple values - use whereIn
-                        $method = $isOr ? 'orWhereRelation' : 'whereRelation';
-                        $q->$method($relation, function ($query) use ($config) {
-                            $query->whereIn('title', $config['values']);
-                        });
-                    }
-                }
-            }]);
+        }
+        if (! empty($constrainedRelationsToLoad)) {
+            $query->with(array_unique($constrainedRelationsToLoad));
         }
 
         return $query;
@@ -941,7 +919,7 @@ class DynamicExportService
     protected function applySorts(Builder $query): Builder
     {
         $this->sorts->each(function (ExportSort $sort) use (&$query) {
-            if ($sort->export_model_relation_id && $sort->modelRelation) {
+            if ($sort->export_model_relation_id && $sort->modelRelation && ! $sort->modelRelation->is_column) {
                 $this->applySortForRelation($query, $sort);
             } else {
                 // Direct column sort
@@ -1420,6 +1398,17 @@ class DynamicExportService
             $expectedValue = $column->export_filter_values ?? $filter->value;
             $actualValue = data_get($item, $filterRelation);
 
+            // When the actual value is a Model/object, extract a meaningful attribute for comparison
+            if ($actualValue instanceof \Illuminate\Database\Eloquent\Model) {
+                $fallbackAttributes = config('laravel-exports.fallback_attributes', ['name', 'title', 'value', 'label']);
+                foreach ($fallbackAttributes as $attr) {
+                    if (isset($actualValue->$attr)) {
+                        $actualValue = $actualValue->$attr;
+                        break;
+                    }
+                }
+            }
+
             if (config('app.debug')) {
                 Log::info('Collection item filter check:', [
                     'filter_relation' => $filterRelation,
@@ -1428,7 +1417,6 @@ class DynamicExportService
                     'matches' => $actualValue === $expectedValue,
                     'item_type' => gettype($item),
                     'item_id' => is_object($item) && isset($item->id) ? $item->id : 'no id',
-                    'item_data' => is_object($item) ? get_object_vars($item) : $item,
                 ]);
             }
 
@@ -1439,15 +1427,6 @@ class DynamicExportService
 
             // Try loose comparison for cases where types might differ
             if ($actualValue == $expectedValue) {
-                if (config('app.debug')) {
-                    Log::info('Collection filter matched with loose comparison', [
-                        'actual_value' => $actualValue,
-                        'expected_value' => $expectedValue,
-                        'actual_type' => gettype($actualValue),
-                        'expected_type' => gettype($expectedValue),
-                    ]);
-                }
-
                 return true;
             }
 
@@ -1893,6 +1872,11 @@ class DynamicExportService
 
         foreach ($this->columns as $column) {
             if ($column->export_model_relation_id && $column->modelRelation) {
+                // Skip direct columns — they are model attributes, not Eloquent relationships
+                if ($column->modelRelation->is_column) {
+                    continue;
+                }
+
                 $relationPath = $column->modelRelation->relation;
 
                 // Add the direct relation
@@ -2599,7 +2583,7 @@ class DynamicExportService
         }, $subGroupBy, array_keys($subGroupBy));
 
         // Check if we have actual pivot columns (filter out empty/null keys)
-        $hasPivotColumns = $dynamicColumns->filter(fn($name, $id) => !empty($name) && !empty($id))->isNotEmpty();
+        $hasPivotColumns = $dynamicColumns->filter(fn ($name, $id) => ! empty($name) && ! empty($id))->isNotEmpty();
 
         // Get custom total header from config (default: 'Total')
         $totalHeader = $config['total_header'] ?? 'Total';
