@@ -212,6 +212,27 @@ EXPORT_CHUNK_SIZE=1000
 
 Smaller chunks use less memory but increase processing time. Larger chunks are faster but use more memory.
 
+## Job Configuration
+
+Configure default settings for the `ProcessExportJob` used by background exports:
+
+```php
+// Number of times the job may be attempted before failing
+'job_tries' => env('EXPORT_JOB_TRIES', 3),
+
+// Number of seconds the job may run before timing out
+'job_timeout' => env('EXPORT_JOB_TIMEOUT', 3600),
+```
+
+### Environment Variables
+
+```env
+EXPORT_JOB_TRIES=3
+EXPORT_JOB_TIMEOUT=3600
+```
+
+Raise `job_timeout` for very large exports that legitimately need to run longer than an hour, and tune `job_tries` against your queue's backoff strategy. Keep `job_tries` low (1–3) for non-idempotent exports so a transient failure doesn't produce duplicate output files.
+
 ## Value Extraction
 
 Configure the attributes the package falls back to when it needs to extract a
@@ -317,6 +338,15 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Job Configuration
+    |--------------------------------------------------------------------------
+    */
+
+    'job_tries' => env('EXPORT_JOB_TRIES', 3),
+    'job_timeout' => env('EXPORT_JOB_TIMEOUT', 3600),
+
+    /*
+    |--------------------------------------------------------------------------
     | Value Extraction Configuration
     |--------------------------------------------------------------------------
     */
@@ -342,6 +372,12 @@ EXPORT_STATUS_TTL=86400
 
 # Default chunk size for processing
 EXPORT_CHUNK_SIZE=1000
+
+# Background job attempt count before failure
+EXPORT_JOB_TRIES=3
+
+# Background job timeout in seconds
+EXPORT_JOB_TIMEOUT=3600
 ```
 
 ## Related Documentation
