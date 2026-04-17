@@ -52,7 +52,8 @@ class ImportModelsCommand extends Command
         $this->log('Starting import at '.date('Y-m-d H:i:s'));
         $this->log('Transaction level at start: '.DB::transactionLevel());
 
-        $path = base_path($this->option('path'));
+        $rawPath = $this->option('path');
+        $path = str_starts_with($rawPath, DIRECTORY_SEPARATOR) ? $rawPath : base_path($rawPath);
         $namespace = $this->option('namespace');
         $filter = $this->option('filter');
         $omit = $this->option('omit');
