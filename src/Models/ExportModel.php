@@ -34,7 +34,7 @@ class ExportModel extends Model
     protected $appends = [
         'instance',
     ];
-    
+
     public function getInstanceAttribute(): Model
     {
         return app($this->model);
@@ -58,10 +58,5 @@ class ExportModel extends Model
     public function sorts(): HasMany
     {
         return $this->hasMany(ExportSort::class, 'export_model_id');
-    }
-
-    public function columns(): HasMany
-    {
-        return $this->hasMany(ExportColumn::class, 'export_model_id');
     }
 }
