@@ -228,7 +228,8 @@ class DynamicExportService
      */
     protected function applyFilter(Builder $query, ExportFilter $filter, $value): void
     {
-        $isOr = $filter->logical_operator === 'OR';
+        // Case-insensitive: the enum column stores lowercase 'or' on MySQL
+        $isOr = strcasecmp((string)$filter->logical_operator, 'or') === 0;
         $columnName = $this->getFilterColumnName($filter);
 
         // Special handling for relation operator
@@ -904,14 +905,14 @@ class DynamicExportService
                 $key = $column->title ?: $column->value_path;
                 $value = $this->extractColumnValue($model, $column);
 
+                // Aggregate first so functions receive the scalar (e.g. format a sum as currency)
+                if ($column->aggregator && is_iterable($value)) {
+                    $value = $this->applyAggregation($value, $column->aggregator);
+                }
+
                 // Apply function if configured
                 if ($column->export_function_id && $column->exportFunction) {
                     $value = $this->applyColumnFunction($value, $column);
-                }
-
-                // Apply aggregation if configured
-                if ($column->aggregator && is_iterable($value)) {
-                    $value = $this->applyAggregation($value, $column->aggregator);
                 }
 
                 // Use default if value is null, empty string, empty array, empty collection,
@@ -1019,7 +1020,14 @@ class DynamicExportService
                     $remainingPath = array_slice($pathParts, count($relationParts));
 
                     if (!empty($remainingPath)) {
-                        return data_get($baseRelation, implode('.', $remainingPath));
+                        $remaining = implode('.', $remainingPath);
+
+                        // Pluck across collections so 'orders.total' with an aggregator works
+                        if ($baseRelation instanceof Collection) {
+                            return $baseRelation->map(fn ($item) => data_get($item, $remaining))->values();
+                        }
+
+                        return data_get($baseRelation, $remaining);
                     }
 
                     return $baseRelation;
@@ -1036,6 +1044,9 @@ class DynamicExportService
             // If value path didn't work, try extracting from the relation
             if ($value === null && $relationPath) {
                 $relatedData = data_get($model, $relationPath);
+                if ($relatedData instanceof Collection) {
+                    return $relatedData->map(fn ($item) => data_get($item, $valuePath))->values();
+                }
                 if ($relatedData) {
                     // Check if value path is an attribute on the related model
                     $value = data_get($relatedData, $valuePath);
@@ -1153,14 +1164,24 @@ class DynamicExportService
             return $this->compareValues($actualValue, $expectedValue);
         });
 
-        // Return the value from the first matching item
-        $firstMatch = $filtered->first();
-
-        if (!$firstMatch) {
-            return $this->getColumnDefault($column);
+        if ($filtered->isEmpty()) {
+            return $column->aggregator ? collect() : $this->getColumnDefault($column);
         }
 
-        // Extract the specific value path from the matched item
+        // Aggregator-bound columns get every matching value so count/sum/avg work;
+        // otherwise keep first-match extraction
+        if ($column->aggregator) {
+            return $filtered->map(fn ($item) => $this->extractItemValue($item, $column, $relationPath))->values();
+        }
+
+        return $this->extractItemValue($filtered->first(), $column, $relationPath);
+    }
+
+    /**
+     * Extract the configured value from a single matched collection item.
+     */
+    protected function extractItemValue($firstMatch, ExportColumn $column, string $relationPath)
+    {
         $extractedValue = null;
 
         if ($column->value_path) {
@@ -1850,7 +1871,7 @@ class DynamicExportService
         $groupByRelations = $config['group_by'] ?? [];
         $subGroupByRelations = $config['sub_group_by'] ?? [];
         $pivotRelation = $config['pivot_relation'] ?? null;
-        $valueRelation = $config['value_relation'] ?? $table;
+        $valueRelation = ($config['value_relation'] ?? null) ?: $table;
         $valueColumn = $config['value_column'] ?? 'id';
         $aggregation = $config['aggregation'] ?? 'count';
         $groupByFormat = $config['group_by_format'] ?? null;

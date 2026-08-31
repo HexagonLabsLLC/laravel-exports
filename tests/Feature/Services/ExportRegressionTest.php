@@ -220,6 +220,103 @@ it('executes pivot exports with a joined value relation', function () {
         ->and($rows['Jane Smith']['Total'])->toBe('30.00');
 });
 
+it('aggregates values plucked from a collection relation and formats the result', function () {
+    $function = ExportFunction::create([
+        'name' => 'Format Number',
+        'callable' => TransformationFunctions::class.'::formatNumber',
+        'parameter_count' => 3,
+        'value_parameter_index' => 0,
+    ]);
+
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->postExportModel->id,
+        'name' => 'Summed Tags Export',
+    ]);
+
+    ExportColumn::create([
+        'export_layout_id' => $layout->id,
+        'export_model_relation_id' => $this->tagsRelation->id,
+        'export_function_id' => $function->id,
+        'export_function_values' => [null, 2, ','],
+        'title' => 'Tag Total',
+        'value_path' => 'tags.value',
+        'aggregator' => 'sum',
+        'position' => 1,
+    ]);
+
+    $result = $this->service->executeExport($layout->id)->toArray();
+
+    expect($result[0]['Tag Total'])->toBe('170.00')
+        ->and($result[1]['Tag Total'])->toBe('275.00')
+        ->and($result[2]['Tag Total'])->toBe('30.00');
+});
+
+it('aggregates over relation-filtered collection subsets', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->postExportModel->id,
+        'name' => 'Filtered Sum Export',
+    ]);
+
+    $filter = ExportFilter::create([
+        'export_layout_id' => $layout->id,
+        'export_model_relation_id' => $this->categoryRelation->id,
+        'operator' => 'relation',
+        'value' => 'Technology',
+    ]);
+
+    ExportColumn::create([
+        'export_layout_id' => $layout->id,
+        'export_model_relation_id' => $this->tagsRelation->id,
+        'export_filter_id' => $filter->id,
+        'export_filter_values' => 'Technology',
+        'title' => 'Tech Total',
+        'value_path' => 'tags.value',
+        'aggregator' => 'sum',
+        'position' => 1,
+    ]);
+
+    $result = $this->service->executeExport($layout->id)->toArray();
+
+    expect($result[0]['Tech Total'])->toBe(120)
+        ->and($result[1]['Tech Total'])->toBe(75)
+        ->and($result[2]['Tech Total'])->toBe(0);
+});
+
+it('treats logical_operator case-insensitively for or filters', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->userExportModel->id,
+        'name' => 'Or Filter Export',
+    ]);
+
+    ExportColumn::create([
+        'export_layout_id' => $layout->id,
+        'export_model_relation_id' => $this->nameRelation->id,
+        'title' => 'Name',
+        'value_path' => 'name',
+        'position' => 1,
+    ]);
+
+    ExportFilter::create([
+        'export_layout_id' => $layout->id,
+        'export_model_relation_id' => $this->nameRelation->id,
+        'operator' => '=',
+        'value' => 'John Doe',
+    ]);
+
+    ExportFilter::create([
+        'export_layout_id' => $layout->id,
+        'export_model_relation_id' => $this->nameRelation->id,
+        'operator' => '=',
+        'value' => 'Jane Smith',
+        'logical_operator' => 'or',
+    ]);
+
+    $result = $this->service->executeExport($layout->id)->toArray();
+
+    expect($result)->toHaveCount(2)
+        ->and(collect($result)->pluck('Name')->all())->toContain('John Doe', 'Jane Smith');
+});
+
 it('reports the export model title in json meta', function () {
     $layout = ExportLayout::create([
         'export_model_id' => $this->userExportModel->id,

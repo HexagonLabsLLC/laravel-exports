@@ -77,7 +77,7 @@ class ImportModelsCommand extends Command
 
         // Create inspector with omit list and deep nesting option
         $omitList = $omit ? explode(',', $omit) : [];
-        $deepLevel = (int)$this->option('deep-level');
+        $deepLevel = min(5, max(1, (int)$this->option('deep-level')));
         $this->log('Transaction level before ModelRelationInspector: '.DB::transactionLevel());
         $this->inspector = new ModelRelationInspector($omitList, $path, $namespace, $this->option('deep'), $deepLevel);
         $this->log('Transaction level after ModelRelationInspector: '.DB::transactionLevel());
@@ -152,7 +152,7 @@ class ImportModelsCommand extends Command
 
             // Phase 4: Deep relationship discovery (if enabled)
             if ($this->option('deep')) {
-                $deepLevel = (int)$this->option('deep-level');
+                $deepLevel = min(5, max(1, (int)$this->option('deep-level')));
                 $this->newLine();
                 $this->info("Phase 4: Discovering nested relationships (depth: {$deepLevel})...");
 
