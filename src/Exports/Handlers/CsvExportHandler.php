@@ -20,6 +20,7 @@ class CsvExportHandler extends ExportHandler
             'escape' => '\\',
             'include_headers' => true,
             'bom' => false, // Byte Order Mark for Excel compatibility
+            'escape_formulas' => true, // Guard against spreadsheet formula injection
         ];
     }
 
@@ -43,10 +44,29 @@ class CsvExportHandler extends ExportHandler
 
         // Convert each row
         foreach ($data as $row) {
-            $output .= $this->arrayToCsv(array_values($row));
+            $output .= $this->arrayToCsv($this->sanitizeRow(array_values($row)));
         }
 
         return $output;
+    }
+
+    /**
+     * Neutralize cells that spreadsheet apps would execute as formulas.
+     */
+    protected function sanitizeRow(array $row): array
+    {
+        if (!($this->options['escape_formulas'] ?? true)) {
+            return $row;
+        }
+
+        return array_map(static function ($value) {
+            if (is_string($value) && $value !== '' && !is_numeric($value)
+                && strpbrk($value[0], "=+-@\t\r") !== false) {
+                return "'".$value;
+            }
+
+            return $value;
+        }, $row);
     }
 
     /**
@@ -101,7 +121,7 @@ class CsvExportHandler extends ExportHandler
 
                 // Write data rows
                 foreach ($chunk as $row) {
-                    fputcsv($handle, array_values($row), $this->options['delimiter'], $this->options['enclosure'], $this->options['escape']);
+                    fputcsv($handle, $this->sanitizeRow(array_values($row)), $this->options['delimiter'], $this->options['enclosure'], $this->options['escape']);
                 }
             });
 

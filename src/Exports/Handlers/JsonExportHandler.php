@@ -36,12 +36,12 @@ class JsonExportHandler extends ExportHandler
                 'exported_at' => now()->toIso8601String(),
                 'total_records' => $data->count(),
                 'layout' => $this->layout->name,
-                'model' => $this->layout->exportModel->name,
+                'model' => $this->layout->exportModel?->title,
             ];
         }
 
-        // Add data
-        if ($this->options['wrap_data']) {
+        // Meta forces the wrapper; bare arrays cannot carry a meta object
+        if ($this->options['wrap_data'] || $this->options['include_meta']) {
             $output['data'] = $data->toArray();
         } else {
             $output = $data->toArray();
@@ -96,58 +96,48 @@ class JsonExportHandler extends ExportHandler
         $filename = $this->sanitizeFilename($filename);
 
         return response()->stream(function () use ($dataCallback) {
-            $isFirstChunk = true;
-            $recordCount = 0;
+            $isFirstRow = true;
+            // Meta forces the wrapper; bare arrays cannot carry a meta object
+            $wrap = $this->options['wrap_data'] || $this->options['include_meta'];
 
-            // Start JSON structure
-            echo '{';
+            if ($wrap) {
+                echo '{';
 
-            // Add metadata if requested
-            if ($this->options['include_meta']) {
-                echo '"meta":{';
-                echo '"exported_at":"'.now()->toIso8601String().'",';
-                echo '"layout":"'.addslashes($this->layout->name).'",';
-                echo '"model":"'.addslashes($this->layout->exportModel->name).'"';
-                echo '}';
-
-                if ($this->options['wrap_data']) {
-                    echo ',';
+                if ($this->options['include_meta']) {
+                    echo '"meta":'.json_encode([
+                        'exported_at' => now()->toIso8601String(),
+                        'layout' => $this->layout->name,
+                        'model' => $this->layout->exportModel?->title,
+                    ], JSON_THROW_ON_ERROR).',';
                 }
-            }
 
-            // Start data array
-            if ($this->options['wrap_data']) {
                 echo '"data":[';
-            } elseif (! $this->options['include_meta']) {
+            } else {
                 echo '[';
             }
 
-            // Process data in chunks
-            $dataCallback(function (Collection $chunk) use (&$isFirstChunk, &$recordCount) {
+            $flags = JSON_THROW_ON_ERROR;
+            if ($this->options['unescaped_slashes']) {
+                $flags |= JSON_UNESCAPED_SLASHES;
+            }
+            if ($this->options['unescaped_unicode']) {
+                $flags |= JSON_UNESCAPED_UNICODE;
+            }
+
+            $dataCallback(function (Collection $chunk) use (&$isFirstRow, $flags) {
                 foreach ($chunk as $row) {
-                    if (! $isFirstChunk) {
+                    if (!$isFirstRow) {
                         echo ',';
                     }
 
-                    $flags = JSON_THROW_ON_ERROR;
-                    if ($this->options['unescaped_slashes']) {
-                        $flags |= JSON_UNESCAPED_SLASHES;
-                    }
-                    if ($this->options['unescaped_unicode']) {
-                        $flags |= JSON_UNESCAPED_UNICODE;
-                    }
-
                     echo json_encode($row, $flags);
-
-                    $isFirstChunk = false;
-                    $recordCount++;
+                    $isFirstRow = false;
                 }
             });
 
-            // Close JSON structure
             echo ']';
 
-            if ($this->options['wrap_data'] || $this->options['include_meta']) {
+            if ($wrap) {
                 echo '}';
             }
 
