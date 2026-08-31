@@ -8,6 +8,12 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Fresh installs create export_model_relation_id directly; only legacy
+        // installs still carry the old column name
+        if (!Schema::hasColumn('export_filters', 'export_relation_id')) {
+            return;
+        }
+
         Schema::table('export_filters', function (Blueprint $table) {
             // Drop the foreign key constraint first
             $table->dropForeign(['export_relation_id']);
@@ -25,6 +31,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (!Schema::hasColumn('export_filters', 'export_model_relation_id')) {
+            return;
+        }
+
         Schema::table('export_filters', function (Blueprint $table) {
             // Drop the foreign key constraint
             $table->dropForeign(['export_model_relation_id']);

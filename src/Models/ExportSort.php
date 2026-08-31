@@ -6,6 +6,16 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property string $id
+ * @property string $export_layout_id
+ * @property string|null $export_model_id
+ * @property string|null $export_model_relation_id
+ * @property string $direction
+ * @property int $priority
+ * @property-read ExportModelRelation|null $modelRelation
+ * @property-read ExportLayout|null $layout
+ */
 class ExportSort extends Model
 {
     use HasUuids;

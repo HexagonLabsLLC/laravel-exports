@@ -7,6 +7,22 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property string $id
+ * @property string $export_model_id
+ * @property string $title
+ * @property string $relation
+ * @property string|null $column
+ * @property string|null $related_model_id
+ * @property bool $is_column
+ * @property bool $is_collection
+ * @property bool $has_pivot
+ * @property array|null $pivot_columns
+ * @property array|null $metadata
+ * @property-read ExportModel|null $model
+ * @property-read ExportModel|null $relatedModel
+ * @property-read Model $instance
+ */
 class ExportModelRelation extends Model
 {
     use HasUuids;
@@ -31,11 +47,13 @@ class ExportModelRelation extends Model
         'export_model_id',
         'title',
         'relation',
+        'column',
         'related_model_id',
         'is_column',
         'is_collection',
         'has_pivot',
         'pivot_columns',
+        'metadata',
     ];
 
     /**
@@ -50,6 +68,7 @@ class ExportModelRelation extends Model
             'is_collection' => 'boolean',
             'has_pivot' => 'boolean',
             'pivot_columns' => 'array',
+            'metadata' => 'array',
         ];
     }
 

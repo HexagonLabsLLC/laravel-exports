@@ -2,11 +2,25 @@
 
 namespace HexagonLabsLLC\LaravelExports\Models;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property string $id
+ * @property string $export_model_id
+ * @property string $name
+ * @property string|null $title
+ * @property string|null $description
+ * @property bool $is_pivot
+ * @property array|null $pivot_config
+ * @property-read ExportModel|null $exportModel
+ * @property-read Collection<int, ExportFilter> $filters
+ * @property-read Collection<int, ExportColumn> $columns
+ * @property-read Collection<int, ExportSort> $sorts
+ */
 class ExportLayout extends Model
 {
     use HasUuids;
@@ -54,7 +68,7 @@ class ExportLayout extends Model
      */
     public function isPivot(): bool
     {
-        return (bool) $this->is_pivot;
+        return (bool)$this->is_pivot;
     }
 
     /**

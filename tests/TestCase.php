@@ -40,7 +40,7 @@ class TestCase extends Orchestra
 
     protected function setUpDatabase(): void
     {
-        // Package tables — final schema consolidating all migrations
+        // Package tables - final schema consolidating all migrations
         Schema::create('export_models', function ($table) {
             $table->uuid('id')->primary();
             $table->string('title');
@@ -55,11 +55,13 @@ class TestCase extends Orchestra
             $table->uuid('export_model_id');
             $table->string('title');
             $table->string('relation');
+            $table->string('column')->nullable();
             $table->uuid('related_model_id')->nullable();
             $table->boolean('is_column')->default(false);
             $table->boolean('is_collection')->default(false);
             $table->boolean('has_pivot')->default(false);
             $table->json('pivot_columns')->nullable();
+            $table->json('metadata')->nullable();
             $table->timestamps();
 
             $table->index(['export_model_id', 'relation', 'related_model_id'], 'emr_model_relation_idx');
@@ -72,6 +74,7 @@ class TestCase extends Orchestra
             $table->uuid('id')->primary();
             $table->uuid('export_model_id');
             $table->string('name');
+            $table->string('title')->nullable();
             $table->string('description')->nullable();
             $table->boolean('is_pivot')->default(false);
             $table->json('pivot_config')->nullable();
