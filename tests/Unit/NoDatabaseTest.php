@@ -62,7 +62,7 @@ class NoDatabaseTest extends TestCase
     public function dynamic_export_service_methods_exist()
     {
         // Use reflection to check methods exist without instantiating
-        $reflection = new \ReflectionClass(DynamicExportService::class);
+        $reflection = new ReflectionClass(DynamicExportService::class);
 
         $this->assertTrue($reflection->hasMethod('applyColumnFilters'));
         $this->assertTrue($reflection->hasMethod('applyFilters'));

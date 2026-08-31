@@ -4,6 +4,7 @@ use HexagonLabsLLC\LaravelExports\Models\ExportModelRelation;
 use HexagonLabsLLC\LaravelExports\Models\ExportSort;
 use HexagonLabsLLC\LaravelExports\Services\DynamicExportService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 test('applies sorting for direct BelongsTo relationships', function () {
     $relation = Mockery::mock(ExportModelRelation::class);
@@ -22,7 +23,7 @@ test('applies sorting for direct BelongsTo relationships', function () {
     // Create a mock query builder to verify the join is applied
     $query = Mockery::mock(Builder::class);
     $mockModel = Mockery::mock('Post');
-    $mockRelation = Mockery::mock(\Illuminate\Database\Eloquent\Relations\BelongsTo::class);
+    $mockRelation = Mockery::mock(BelongsTo::class);
     $relatedModel = Mockery::mock('User');
 
     $query->shouldReceive('getModel')->andReturn($mockModel);

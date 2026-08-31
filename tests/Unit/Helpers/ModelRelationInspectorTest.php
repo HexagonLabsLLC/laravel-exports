@@ -4,6 +4,7 @@ use HexagonLabsLLC\LaravelExports\Helpers\ModelRelationInspector;
 use HexagonLabsLLC\LaravelExports\Tests\TestModels\Comment;
 use HexagonLabsLLC\LaravelExports\Tests\TestModels\Post;
 use HexagonLabsLLC\LaravelExports\Tests\TestModels\User;
+use Illuminate\Database\Eloquent\Model;
 
 beforeEach(function () {
     $this->inspector = new ModelRelationInspector;
@@ -38,7 +39,7 @@ it('returns correct relation types', function () {
 
 it('handles models with no relations', function () {
     // Create a model without relations
-    $modelClass = new class extends \Illuminate\Database\Eloquent\Model
+    $modelClass = new class extends Model
     {
         protected $table = 'test_table';
     };
@@ -51,7 +52,7 @@ it('handles models with no relations', function () {
 
 it('ignores non-relation methods', function () {
     // Create a model with non-relation methods
-    $modelClass = new class extends \Illuminate\Database\Eloquent\Model
+    $modelClass = new class extends Model
     {
         protected $table = 'test_table';
 

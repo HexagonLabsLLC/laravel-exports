@@ -30,7 +30,7 @@ class ExportFactory
     {
         $format = strtolower($format);
 
-        if (! isset(self::$handlers[$format])) {
+        if (!isset(self::$handlers[$format])) {
             throw new \InvalidArgumentException("Unsupported export format: {$format}. Supported formats: ".implode(', ', array_keys(self::$handlers)));
         }
 
@@ -47,7 +47,7 @@ class ExportFactory
      */
     public static function register(string $format, string $handlerClass): void
     {
-        if (! is_subclass_of($handlerClass, ExportHandler::class)) {
+        if (!is_subclass_of($handlerClass, ExportHandler::class)) {
             throw new \InvalidArgumentException('Handler class must extend '.ExportHandler::class);
         }
 

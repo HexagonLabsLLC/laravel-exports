@@ -386,7 +386,7 @@ class TransformationFunctions
     // Number Functions
     public static function formatNumber($number, $decimals = 2, $thousandsSeparator = ',')
     {
-        if (! is_numeric($number)) {
+        if (!is_numeric($number)) {
             return $number;
         }
 
@@ -395,7 +395,7 @@ class TransformationFunctions
 
     public static function formatCurrency($number, $currency = 'USD', $locale = 'en_US')
     {
-        if (! is_numeric($number)) {
+        if (!is_numeric($number)) {
             return $number;
         }
 
@@ -406,7 +406,7 @@ class TransformationFunctions
 
     public static function round($number, $decimals = 0)
     {
-        if (! is_numeric($number)) {
+        if (!is_numeric($number)) {
             return $number;
         }
 
@@ -415,7 +415,7 @@ class TransformationFunctions
 
     public static function percentage($number, $decimals = 2)
     {
-        if (! is_numeric($number)) {
+        if (!is_numeric($number)) {
             return $number;
         }
 
@@ -440,7 +440,7 @@ class TransformationFunctions
 
     public static function arrayJoin($array, $separator = ', ')
     {
-        if (! is_array($array) && ! ($array instanceof \Traversable)) {
+        if (!is_array($array) && !($array instanceof \Traversable)) {
             return $array;
         }
 
@@ -449,7 +449,7 @@ class TransformationFunctions
 
     public static function arrayCount($array)
     {
-        if (! is_array($array) && ! ($array instanceof \Countable)) {
+        if (!is_array($array) && !($array instanceof \Countable)) {
             return 0;
         }
 
