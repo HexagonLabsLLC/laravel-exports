@@ -172,6 +172,23 @@ public function getExportCount(
 $count = $service->getExportCount($layout, $requestData);
 ```
 
+### getQuery()
+
+Get the fully built query (filters, sorts, and eager loads applied) without executing it. Useful for debugging.
+
+```php
+public function getQuery(
+    ExportLayout|string $layout,
+    array $requestData = []
+): Builder
+```
+
+**Example:**
+```php
+$query = $service->getQuery($layout, $requestData);
+dd($query->toSql(), $query->getBindings());
+```
+
 ### queueExport()
 
 Queue an export for background processing.
@@ -185,6 +202,8 @@ public function queueExport(
 ```
 
 **Returns:** Export ID (UUID)
+
+**Note:** Queued exports support only the `csv` and `json` formats. Other formats throw an `InvalidArgumentException`.
 
 **Example:**
 ```php
@@ -336,8 +355,11 @@ Defines an export configuration.
 **Properties:**
 - `id` (uuid)
 - `export_model_id` (uuid)
-- `title` (string)
+- `name` (string)
+- `title` (string, nullable)
 - `description` (string, nullable)
+- `is_pivot` (boolean)
+- `pivot_config` (json, nullable)
 
 **Relationships:**
 - `exportModel()` - BelongsTo ExportModel
@@ -419,11 +441,13 @@ Represents model columns and relationships.
 - `export_model_id` (uuid)
 - `title` (string)
 - `relation` (string)
+- `column` (string, nullable) - Target column for relationship filters
 - `related_model_id` (uuid, nullable)
 - `is_column` (boolean)
 - `is_collection` (boolean)
 - `has_pivot` (boolean)
 - `pivot_columns` (json, nullable)
+- `metadata` (json, nullable) - Extra configuration, e.g. `{"sort_column": "name"}` for related-column sorting
 
 **Scopes:**
 - `whereNested(string $path)` - Filter by nested relationship path
@@ -443,6 +467,7 @@ ExportModelRelation::whereNested('workItem.workOrder.customer')->first();
 - `enclosure` (string) - Default: '"'
 - `escape` (string) - Default: '\\'
 - `headers` (boolean) - Default: true
+- `escape_formulas` (boolean) - Default: true. Guards against spreadsheet formula injection by prefixing cell values starting with `=`, `+`, `-`, `@`, tab, or carriage return with a single quote. Set to false to disable.
 
 ### JsonExportHandler
 
@@ -450,28 +475,8 @@ ExportModelRelation::whereNested('workItem.workOrder.customer')->first();
 - `pretty` (boolean) - Default: false
 - `options` (integer) - JSON encoding options
 - `depth` (integer) - Default: 512
-
----
-
-## ExportInspector
-
-Validates and syncs model configurations.
-
-### validateExportConfiguration()
-
-```php
-public function validateExportConfiguration(ExportLayout $layout): array
-```
-
-**Returns:** Array of validation errors (empty if valid)
-
-### syncModelRelations()
-
-```php
-public function syncModelRelations(ExportModel $model): array
-```
-
-**Returns:** Array with 'columns' and 'relations' counts
+- `wrap_data` (boolean) - Default: true. Wrap rows in a `data` key.
+- `include_meta` (boolean) - Default: true. Include metadata; when enabled, rows are always wrapped in a `data` key.
 
 ---
 

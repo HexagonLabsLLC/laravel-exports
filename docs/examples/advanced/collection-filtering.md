@@ -72,6 +72,7 @@ $workItemModel = ExportModel::where('title', 'WorkItem')->first();
 
 $layout = ExportLayout::create([
     'export_model_id' => $workItemModel->id,
+    'name' => 'work_items_with_identifiers',
     'title' => 'Work Items with Identifiers',
 ]);
 ```

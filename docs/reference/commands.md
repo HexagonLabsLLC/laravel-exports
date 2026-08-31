@@ -210,57 +210,6 @@ Seeding complete!
 
 ---
 
-## export:test-db
-
-Test database connectivity and model relations.
-
-```bash
-php artisan export:test-db [options]
-```
-
-### Options
-
-| Option | Description |
-|--------|-------------|
-| `--model` | Specific model to test |
-| `--relation` | Specific relation to test |
-
-### Basic Usage
-
-```bash
-# Test all models
-php artisan export:test-db
-
-# Test specific model
-php artisan export:test-db --model=User
-
-# Test specific relation
-php artisan export:test-db --model=User --relation=posts
-```
-
-### Output Example
-
-```
-Testing database connectivity...
-  Connection: mysql
-  Database: exports_db
-  Status: Connected
-
-Testing registered models...
-  [1/5] User
-    - Table exists: yes
-    - Record count: 1,234
-    - Relations:
-      - posts: HasMany (Post) - OK
-      - profile: HasOne (Profile) - OK
-      - roles: BelongsToMany (Role) - OK, pivot columns: [assigned_at, expires_at]
-  ...
-
-All tests passed!
-```
-
----
-
 ## Common Workflows
 
 ### Initial Setup
@@ -274,9 +223,6 @@ php artisan export:import-models --deep
 
 # 3. Seed transformation functions
 php artisan export:seed-functions
-
-# 4. Verify setup
-php artisan export:test-db
 ```
 
 ### After Adding New Models
@@ -347,9 +293,6 @@ If relations aren't being discovered:
 If getting database errors:
 
 ```bash
-# Test connectivity first
-php artisan export:test-db
-
 # Check migrations have run
 php artisan migrate:status
 ```

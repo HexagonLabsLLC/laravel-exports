@@ -124,6 +124,14 @@ FROM users
 ORDER BY posts_count DESC
 ```
 
+### Custom Sort Column via Metadata
+
+When sorting through a relation, the related column to sort by defaults to `id`. Set `metadata` on the `ExportModelRelation` to choose a different column:
+
+```php
+$relation->update(['metadata' => ['sort_column' => 'name']]);
+```
+
 ## Common Sort Patterns
 
 ### Newest First
@@ -287,6 +295,7 @@ ORDER BY column ASC NULLS LAST
 // Create layout
 $layout = ExportLayout::create([
     'export_model_id' => $orderModel->id,
+    'name' => 'orders_report',
     'title' => 'Orders Report',
 ]);
 

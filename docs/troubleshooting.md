@@ -2,41 +2,19 @@
 
 Common issues and solutions when working with Laravel Exports.
 
-## Debug Mode
+## Inspecting the Query
 
-Enable debug mode for detailed logging:
+To see the query an export will run, use `getQuery()`:
 
-```env
-APP_DEBUG=true
+```php
+$query = $service->getQuery($layout, $requestData);
+dd($query->toSql(), $query->getBindings());
 ```
 
-Debug output includes:
-- Column processing details
-- Relation loading status
-- Query execution with bindings
-- Collection filtering results
-- Function execution tracking
-
-### Log Locations
-
-Debug logs are written to Laravel's default log channel:
+Errors and warnings are still written to Laravel's default log channel:
 
 ```
 storage/logs/laravel.log
-```
-
-To isolate export logs, configure a dedicated channel:
-
-```php
-// config/logging.php
-'channels' => [
-    'exports' => [
-        'driver' => 'daily',
-        'path' => storage_path('logs/exports.log'),
-        'level' => 'debug',
-        'days' => 14,
-    ],
-],
 ```
 
 ## Common Errors
@@ -133,11 +111,10 @@ $valid = ModelRelationInspector::validateNestedPath(
 // Right: 'value_path' => 'user.name'
 ```
 
-2. Verify eager loading:
+2. Verify eager loading by inspecting the built query:
 ```php
-// Enable debug mode and check logs for:
-"Required relations: ['user']"
-"Loading relations: ['user']"
+$query = $service->getQuery($layout, $requestData);
+dd($query->getEagerLoads());
 ```
 
 3. Add aggregator for collections:
@@ -369,7 +346,6 @@ logger("Memory used: " . number_format($used / 1024 / 1024, 2) . " MB");
 
 1. Use streaming for large datasets
 2. Process in smaller chunks
-3. Disable debug mode in production
 
 ## Queue Issues
 
@@ -465,42 +441,14 @@ php artisan vendor:publish \
     --provider="HexagonLabsLLC\LaravelExports\LaravelExportsServiceProvider"
 ```
 
-## Database Connectivity
-
-### Test Connection
-
-Use the built-in command:
-
-```bash
-php artisan export:test-db
-```
-
-This verifies:
-- Database connection
-- All export tables exist
-- Model relations are valid
-
-### Test Specific Model
-
-```bash
-php artisan export:test-db --model=User
-```
-
-### Test Specific Relation
-
-```bash
-php artisan export:test-db --model=User --relation=posts
-```
-
 ## Getting Help
 
 If you're still experiencing issues:
 
-1. Enable debug mode and check logs
-2. Verify your configuration with `export:test-db`
-3. Check the [API Reference](reference/api.md) for correct method signatures
-4. Review [examples](examples/) for working configurations
-5. Report issues at the project repository
+1. Inspect the built query with `getQuery()` and check the logs for errors and warnings
+2. Check the [API Reference](reference/api.md) for correct method signatures
+3. Review [examples](examples/) for working configurations
+4. Report issues at the project repository
 
 ## Quick Checklist
 
@@ -509,7 +457,6 @@ When troubleshooting, verify:
 - [ ] Models are imported (`export:import-models`)
 - [ ] Functions are seeded (`export:seed-functions`)
 - [ ] Migrations have run (`migrate:status`)
-- [ ] Debug mode is enabled for detailed logs
 - [ ] value_path uses correct dot notation
 - [ ] Aggregators are set for collection relations
 - [ ] Request filters receive values

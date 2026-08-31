@@ -177,23 +177,22 @@ public function roles(): BelongsToMany
 
 ## Programmatic Import
 
-You can also import models programmatically:
+You can also register a model programmatically:
 
 ```php
 use HexagonLabsLLC\LaravelExports\Models\ExportModel;
-use HexagonLabsLLC\LaravelExports\Services\ExportInspector;
 
 // Register a model manually
 $exportModel = ExportModel::create([
     'title' => 'User',
     'model' => 'App\Models\User',
 ]);
+```
 
-// Sync its relations
-$inspector = new ExportInspector();
-$result = $inspector->syncModelRelations($exportModel);
+To discover its columns and relationships, run the import command afterward:
 
-// Result: ['columns' => 5, 'relations' => 3]
+```bash
+php artisan export:import-models --force
 ```
 
 ## Accessing Registered Models

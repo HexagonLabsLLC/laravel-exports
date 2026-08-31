@@ -412,19 +412,14 @@ ExportFilter::create([
 
 ## Debugging Filters
 
-Enable debug mode:
+Use `getQuery()` to inspect the query with all filters applied:
 
-```env
-APP_DEBUG=true
+```php
+$query = $service->getQuery($layout, $requestData);
+dd($query->toSql(), $query->getBindings());
 ```
 
-Check logs for:
-
-```
-[INFO] Applying filter: status = 'active'
-[INFO] Request filter matched: created_at => ['2024-01-01', '2024-12-31']
-[INFO] Query SQL: SELECT * FROM users WHERE status = 'active' AND ...
-```
+Errors and warnings are still written to the log.
 
 ## Best Practices
 

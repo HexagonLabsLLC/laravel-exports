@@ -16,6 +16,7 @@ $userModel = ExportModel::where('title', 'User')->first();
 // Create a layout
 $layout = ExportLayout::create([
     'export_model_id' => $userModel->id,
+    'name' => 'active_users_report',
     'title' => 'Active Users Report',
     'description' => 'Export active users with their profile information',
 ]);
@@ -46,7 +47,7 @@ ExportColumn::create([
 | `value_path` | string | Dot notation path to value |
 | `position` | integer | Display order (1 = first) |
 | `default` | string | Value when data is null/empty |
-| `omit_on_empty` | boolean | Skip column if value is empty |
+| `omit_on_empty` | boolean | Output an empty string when the value is empty (keeps CSV columns aligned) |
 | `export_model_relation_id` | uuid | Link to relation (optional) |
 | `export_function_id` | uuid | Transformation function |
 | `export_function_values` | json | Function parameters |
@@ -145,7 +146,7 @@ ExportColumn::create([
     'export_layout_id' => $layout->id,
     'title' => 'Middle Name',
     'value_path' => 'middle_name',
-    'omit_on_empty' => true,      // Skip if empty
+    'omit_on_empty' => true,      // Empty string if empty
     'position' => 1,
 ]);
 ```
@@ -246,6 +247,7 @@ One model can have multiple layouts for different purposes:
 // Detailed user report
 $detailedLayout = ExportLayout::create([
     'export_model_id' => $userModel->id,
+    'name' => 'detailed_user_report',
     'title' => 'Detailed User Report',
     'description' => 'All user fields with related data',
 ]);
@@ -253,6 +255,7 @@ $detailedLayout = ExportLayout::create([
 // Compact user list
 $compactLayout = ExportLayout::create([
     'export_model_id' => $userModel->id,
+    'name' => 'user_list',
     'title' => 'User List',
     'description' => 'Simple name and email list',
 ]);
@@ -260,6 +263,7 @@ $compactLayout = ExportLayout::create([
 // Admin export with sensitive data
 $adminLayout = ExportLayout::create([
     'export_model_id' => $userModel->id,
+    'name' => 'admin_user_export',
     'title' => 'Admin User Export',
     'description' => 'Complete user data including sensitive fields',
 ]);

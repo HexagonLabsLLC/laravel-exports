@@ -19,6 +19,7 @@ $formatDate = ExportFunction::where('name', 'Format Date')->first();
 
 $layout = ExportLayout::create([
     'export_model_id' => $orderModel->id,
+    'name' => 'order_export',
     'title' => 'Order Export',
 ]);
 
@@ -111,8 +112,11 @@ return $service->downloadAs($layout, 'csv', 'orders.csv', $requestData, [
     'enclosure' => '"',      // Field enclosure (default: ")
     'escape' => '\\',        // Escape character (default: \)
     'headers' => true,       // Include header row (default: true)
+    'escape_formulas' => true, // Prefix =, +, -, @, tab, CR cells with ' (default: true)
 ]);
 ```
+
+By default, cell values starting with `=`, `+`, `-`, `@`, a tab, or a carriage return are prefixed with a single quote to guard against spreadsheet formula injection. Set `escape_formulas => false` to disable.
 
 ### JSON Options
 
@@ -120,10 +124,16 @@ return $service->downloadAs($layout, 'csv', 'orders.csv', $requestData, [
 return $service->downloadAs($layout, 'json', 'orders.json', $requestData, [
     'pretty' => true,        // Pretty print (default: false)
     'options' => JSON_UNESCAPED_UNICODE,  // JSON flags
+    'wrap_data' => true,     // Wrap rows in a "data" key (default: true)
+    'include_meta' => true,  // Include metadata (default: true)
 ]);
 ```
 
+By default, rows are wrapped in a `data` key alongside metadata. With `include_meta` enabled, rows are always wrapped in a `data` key. Set both `wrap_data` and `include_meta` to false for a bare array of rows.
+
 ## Sample Outputs
+
+The JSON samples below use `wrap_data => false` and `include_meta => false`.
 
 ### CSV Output
 

@@ -59,6 +59,7 @@ use HexagonLabsLLC\LaravelExports\Services\DynamicExportService;
 $userModel = ExportModel::where('title', 'User')->first();
 $layout = ExportLayout::create([
     'export_model_id' => $userModel->id,
+    'name' => 'user_export',
     'title' => 'User Export',
 ]);
 
@@ -129,7 +130,7 @@ $status = ProcessExportJob::getStatus($exportId);
 ## Requirements
 
 - PHP 8.2+
-- Laravel 12.0+
+- Laravel 12 or 13
 - Database with UUID support
 
 ## Learn More

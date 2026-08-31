@@ -71,6 +71,7 @@ $orderModel = ExportModel::where('title', 'Order')->first();
 
 $layout = ExportLayout::create([
     'export_model_id' => $orderModel->id,
+    'name' => 'orders_with_customer_details',
     'title' => 'Orders with Customer Details',
 ]);
 ```

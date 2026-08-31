@@ -133,6 +133,8 @@ return response()->json([
 ]);
 ```
 
+Queued exports support only the `csv` and `json` formats. Other formats throw an `InvalidArgumentException` when the job runs.
+
 ### Check Status
 
 ```php
@@ -365,6 +367,7 @@ logger("Chunk 500: {$time}s");
 // Layout for 1M+ orders
 $layout = ExportLayout::create([
     'export_model_id' => $orderModel->id,
+    'name' => 'all_orders_export',
     'title' => 'All Orders Export',
 ]);
 

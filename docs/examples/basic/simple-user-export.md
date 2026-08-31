@@ -38,6 +38,7 @@ $userModel = ExportModel::where('title', 'User')->first();
 // Create layout
 $layout = ExportLayout::create([
     'export_model_id' => $userModel->id,
+    'name' => 'user_list',
     'title' => 'User List',
     'description' => 'Basic user information export',
 ]);

@@ -89,6 +89,7 @@ $workItemModel = ExportModel::where('title', 'WorkItem')->first();
 
 $layout = ExportLayout::create([
     'export_model_id' => $workItemModel->id,
+    'name' => 'work_items_with_full_customer_details',
     'title' => 'Work Items with Full Customer Details',
 ]);
 ```
@@ -263,22 +264,16 @@ $query->with([
 
 This is optimized to prevent N+1 queries but can be slow with very deep nesting or large datasets.
 
-## Debug Mode
+## Debugging
 
-Enable to see path traversal:
+Use `getQuery()` to inspect the built query and its eager loads before executing:
 
-```env
-APP_DEBUG=true
+```php
+$query = $service->getQuery($layout, $requestData);
+dd($query->toSql(), $query->getEagerLoads());
 ```
 
-**Log output:**
-```
-[INFO] Extracting value for: workOrder.customer.contact.org_name
-[INFO] Traversing: workOrder -> WorkOrder #1
-[INFO] Traversing: customer -> Customer #1
-[INFO] Traversing: contact -> Contact #1
-[INFO] Extracting attribute: org_name -> "Acme Corporation"
-```
+Errors and warnings are still written to the log.
 
 ## Notes
 

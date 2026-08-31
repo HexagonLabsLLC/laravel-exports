@@ -71,8 +71,8 @@ Laravel Exports is a powerful, database-driven export system for Laravel applica
 
 ## Requirements
 
-- PHP 8.1 or higher
-- Laravel 10.0 or higher
+- PHP 8.2 or higher
+- Laravel 12 or 13
 - Database with UUID support (MySQL 5.7+, PostgreSQL 9.4+, SQLite 3.8+)
 
 ## Quick Start
@@ -102,6 +102,7 @@ use HexagonLabsLLC\LaravelExports\Services\DynamicExportService;
 $userModel = ExportModel::where('title', 'User')->first();
 $layout = ExportLayout::create([
     'export_model_id' => $userModel->id,
+    'name' => 'user_export',
     'title' => 'User Export',
 ]);
 

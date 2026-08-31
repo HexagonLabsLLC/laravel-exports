@@ -276,30 +276,16 @@ $requestData = [
 ];
 ```
 
-## Debug Mode
+## Debugging
 
-Enable debug mode to see detailed processing information:
-
-```env
-APP_DEBUG=true
-```
-
-This logs:
-- Query SQL and bindings
-- Filter application details
-- Column processing steps
-- Relation traversal
-- Function execution
+Use `getQuery()` to inspect the fully built query (filters, sorts, and eager loads applied) without executing it:
 
 ```php
-// Example log output
-[INFO] Building query for layout: Active Users Report
-[INFO] Loading relations: ['profile', 'orders', 'orders.items']
-[INFO] Applying filter: status = 'active'
-[INFO] Applying sort: created_at desc (priority 1)
-[INFO] Processing column 'Email': extracted value 'user@example.com'
-[INFO] Processing column 'Order Total': aggregated sum = 1234.56
+$query = $service->getQuery($layout, $requestData);
+dd($query->toSql(), $query->getBindings(), $query->getEagerLoads());
 ```
+
+Errors and warnings are still written to the log.
 
 ## Performance Considerations
 

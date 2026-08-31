@@ -8,83 +8,6 @@ All configuration options are in `config/laravel-exports.php`.
 php artisan vendor:publish --provider="HexagonLabsLLC\LaravelExports\LaravelExportsServiceProvider" --tag="config"
 ```
 
-## Model Configuration
-
-Override the default model classes to add custom behavior:
-
-```php
-'export_models' => [
-    'model' => \HexagonLabsLLC\LaravelExports\Models\ExportModel::class,
-    'table' => 'export_models',
-],
-
-'export_model_relations' => [
-    'model' => \HexagonLabsLLC\LaravelExports\Models\ExportModelRelation::class,
-    'table' => 'export_model_relations',
-],
-
-'export_layouts' => [
-    'model' => \HexagonLabsLLC\LaravelExports\Models\ExportLayout::class,
-    'table' => 'export_layouts',
-],
-
-'export_filters' => [
-    'model' => \HexagonLabsLLC\LaravelExports\Models\ExportFilter::class,
-    'table' => 'export_filters',
-],
-
-'export_sorts' => [
-    'model' => \HexagonLabsLLC\LaravelExports\Models\ExportSort::class,
-    'table' => 'export_sorts',
-],
-
-'export_functions' => [
-    'model' => \HexagonLabsLLC\LaravelExports\Models\ExportFunction::class,
-    'table' => 'export_functions',
-],
-
-'export_columns' => [
-    'model' => \HexagonLabsLLC\LaravelExports\Models\ExportColumn::class,
-    'table' => 'export_columns',
-],
-```
-
-### Custom Model Example
-
-Create a custom model that extends the package model:
-
-```php
-<?php
-
-namespace App\Models;
-
-use HexagonLabsLLC\LaravelExports\Models\ExportLayout as BaseExportLayout;
-
-class ExportLayout extends BaseExportLayout
-{
-    // Add custom scopes
-    public function scopeForUser($query, $userId)
-    {
-        return $query->where('user_id', $userId);
-    }
-
-    // Add custom relationships
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
-}
-```
-
-Update the configuration:
-
-```php
-'export_layouts' => [
-    'model' => \App\Models\ExportLayout::class,
-    'table' => 'export_layouts',
-],
-```
-
 ## Queue Configuration
 
 Configure background export processing:
@@ -231,7 +154,7 @@ EXPORT_JOB_TRIES=3
 EXPORT_JOB_TIMEOUT=3600
 ```
 
-Raise `job_timeout` for very large exports that legitimately need to run longer than an hour, and tune `job_tries` against your queue's backoff strategy. Keep `job_tries` low (1–3) for non-idempotent exports so a transient failure doesn't produce duplicate output files.
+Raise `job_timeout` for very large exports that legitimately need to run longer than an hour, and tune `job_tries` against your queue's backoff strategy. Keep `job_tries` low (1-3) for non-idempotent exports so a transient failure doesn't produce duplicate output files.
 
 ## Value Extraction
 
@@ -262,47 +185,6 @@ list to match your own domain conventions:
 <?php
 
 return [
-    /*
-    |--------------------------------------------------------------------------
-    | Model Configuration
-    |--------------------------------------------------------------------------
-    */
-
-    'export_models' => [
-        'model' => \HexagonLabsLLC\LaravelExports\Models\ExportModel::class,
-        'table' => 'export_models',
-    ],
-
-    'export_model_relations' => [
-        'model' => \HexagonLabsLLC\LaravelExports\Models\ExportModelRelation::class,
-        'table' => 'export_model_relations',
-    ],
-
-    'export_layouts' => [
-        'model' => \HexagonLabsLLC\LaravelExports\Models\ExportLayout::class,
-        'table' => 'export_layouts',
-    ],
-
-    'export_filters' => [
-        'model' => \HexagonLabsLLC\LaravelExports\Models\ExportFilter::class,
-        'table' => 'export_filters',
-    ],
-
-    'export_sorts' => [
-        'model' => \HexagonLabsLLC\LaravelExports\Models\ExportSort::class,
-        'table' => 'export_sorts',
-    ],
-
-    'export_functions' => [
-        'model' => \HexagonLabsLLC\LaravelExports\Models\ExportFunction::class,
-        'table' => 'export_functions',
-    ],
-
-    'export_columns' => [
-        'model' => \HexagonLabsLLC\LaravelExports\Models\ExportColumn::class,
-        'table' => 'export_columns',
-    ],
-
     /*
     |--------------------------------------------------------------------------
     | Queue Configuration

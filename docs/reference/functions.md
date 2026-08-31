@@ -269,7 +269,7 @@ Format as currency.
 |-------|----------|--------|--------|
 | 1234.50 | USD | en_US | $1,234.50 |
 | 1234.50 | EUR | de_DE | 1.234,50 EUR |
-| 1234.50 | GBP | en_GB | £1,234.50 |
+| 1234.50 | GBP | en_GB | 1,234.50 with a pound sign prefix |
 
 ---
 

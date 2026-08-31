@@ -108,6 +108,7 @@ $arrayJoin = ExportFunction::where('name', 'Array Join')->first();
 
 $layout = ExportLayout::create([
     'export_model_id' => $userModel->id,
+    'name' => 'user_roles_export',
     'title' => 'User Roles Export',
 ]);
 ```
@@ -251,6 +252,7 @@ ExportColumn::create([
 
 $layout = ExportLayout::create([
     'export_model_id' => $projectModel->id,
+    'name' => 'project_team_export',
     'title' => 'Project Team Export',
 ]);
 

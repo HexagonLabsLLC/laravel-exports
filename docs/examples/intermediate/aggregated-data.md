@@ -36,6 +36,7 @@ $customerModel = ExportModel::where('title', 'Customer')->first();
 
 $layout = ExportLayout::create([
     'export_model_id' => $customerModel->id,
+    'name' => 'customer_summary',
     'title' => 'Customer Summary',
 ]);
 

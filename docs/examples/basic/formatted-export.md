@@ -33,6 +33,7 @@ $userModel = ExportModel::where('title', 'User')->first();
 
 $layout = ExportLayout::create([
     'export_model_id' => $userModel->id,
+    'name' => 'formatted_user_report',
     'title' => 'Formatted User Report',
 ]);
 ```
@@ -167,7 +168,7 @@ $percentage = ExportFunction::where('name', 'Percentage')->first();
 
 // GBP
 'export_function_values' => json_encode(['GBP', 'en_GB'])
-// Output: "£1,234.56"
+// Output: "1,234.56" prefixed with the pound sign
 ```
 
 ### Boolean Formats

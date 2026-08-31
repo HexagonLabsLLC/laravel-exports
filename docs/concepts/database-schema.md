@@ -18,19 +18,19 @@ Laravel Exports uses 7 interconnected database tables to store export configurat
 
 ```
 export_models
-    │
-    ├──< export_model_relations
-    │       │
-    │       └──< export_columns
-    │       └──< export_filters
-    │       └──< export_sorts
-    │
-    └──< export_layouts
-            │
-            ├──< export_columns ──> export_functions
-            │                   ──> export_filters
-            ├──< export_filters
-            └──< export_sorts
+    |
+    |--< export_model_relations
+    |       |
+    |       `--< export_columns
+    |       `--< export_filters
+    |       `--< export_sorts
+    |
+    `--< export_layouts
+            |
+            |--< export_columns --> export_functions
+            |                   --> export_filters
+            |--< export_filters
+            `--< export_sorts
 ```
 
 ## Table Details
@@ -69,11 +69,13 @@ Stores columns and relationships for each model.
 | `export_model_id` | UUID | Foreign key to export_models |
 | `title` | VARCHAR | Display name |
 | `relation` | VARCHAR | Column name or relationship method (supports dot notation) |
+| `column` | VARCHAR (nullable) | Target column for relationship filters |
 | `related_model_id` | UUID (nullable) | Foreign key to related export_model |
 | `is_column` | BOOLEAN | True if this is a table column |
 | `is_collection` | BOOLEAN | True if relationship returns multiple items |
 | `has_pivot` | BOOLEAN | True if BelongsToMany with pivot data |
 | `pivot_columns` | JSON (nullable) | Array of available pivot column names |
+| `metadata` | JSON (nullable) | Extra configuration, e.g. `{"sort_column": "name"}` for related-column sorting |
 | `created_at` | TIMESTAMP | Record creation time |
 | `updated_at` | TIMESTAMP | Record update time |
 
@@ -133,19 +135,23 @@ Stores named export configurations.
 |--------|------|-------------|
 | `id` | UUID | Primary key |
 | `export_model_id` | UUID | Foreign key to export_models (entry point) |
-| `title` | VARCHAR | Layout name |
+| `name` | VARCHAR | Layout name (identifier) |
+| `title` | VARCHAR (nullable) | Display title |
 | `description` | VARCHAR (nullable) | Layout description |
+| `is_pivot` | BOOLEAN | True if the layout produces a pivot (crosstab) export |
+| `pivot_config` | JSON (nullable) | Pivot export configuration |
 | `created_at` | TIMESTAMP | Record creation time |
 | `updated_at` | TIMESTAMP | Record update time |
 
 **Indexes:**
-- Composite: `export_model_id`, `title`
+- Composite: `export_model_id`, `name`
 
 **Example:**
 
 ```php
 ExportLayout::create([
     'export_model_id' => $userModel->id,
+    'name' => 'active_users',
     'title' => 'Active Users Report',
     'description' => 'Export active users with profile data',
 ]);
@@ -171,7 +177,7 @@ Defines output columns for a layout.
 | `position` | INTEGER | Column display order |
 | `is_expanded` | BOOLEAN | Expand collections to multiple columns |
 | `expansion_data` | JSON (nullable) | Expansion configuration |
-| `omit_on_empty` | BOOLEAN | Skip column if value is empty |
+| `omit_on_empty` | BOOLEAN | Output an empty string when the value is empty (keeps CSV columns aligned) |
 | `created_at` | TIMESTAMP | Record creation time |
 | `updated_at` | TIMESTAMP | Record update time |
 
@@ -388,8 +394,8 @@ When the migrations run, tables are created in this order to satisfy foreign key
 2. `export_model_relations`
 3. `export_layouts`
 4. `export_functions`
-5. `export_columns`
-6. `export_filters`
+5. `export_filters`
+6. `export_columns`
 7. `export_sorts`
 
 ## Related Documentation

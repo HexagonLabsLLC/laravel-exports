@@ -411,25 +411,14 @@ $requestData = [$filter->id => 'value'];                       // Filter UUID
 
 ## Debugging Filters
 
-Enable debug mode to see filter application:
+Use `getQuery()` to inspect the query with all filters applied:
 
-```env
-APP_DEBUG=true
+```php
+$query = $service->getQuery($layout, $requestData);
+dd($query->toSql(), $query->getBindings());
 ```
 
-**Log output:**
-
-```
-[INFO] Applying layout filter: status = 'active'
-[INFO] Request filter matched: workOrder.invoice.custom_id => ['INV001']
-[INFO] Applying smart relation filter:
-    original_path: workOrder.invoice.custom_id
-    parsed_relation: workOrder.invoice
-    parsed_column: custom_id
-    operator: in
-    value: ['INV001']
-[INFO] Query SQL: SELECT * FROM work_items WHERE EXISTS (...)
-```
+Errors and warnings are still written to the log.
 
 ## Common Patterns
 

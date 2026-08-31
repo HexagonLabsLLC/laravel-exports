@@ -29,6 +29,7 @@ $orderModel = ExportModel::where('title', 'Order')->first();
 
 $layout = ExportLayout::create([
     'export_model_id' => $orderModel->id,
+    'name' => 'filtered_orders_report',
     'title' => 'Filtered Orders Report',
 ]);
 

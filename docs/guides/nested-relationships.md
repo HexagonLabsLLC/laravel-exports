@@ -321,22 +321,16 @@ php artisan export:import-models --force --deep --deep-level=3
 4. **Test Paths**: Verify paths work before creating exports
 5. **Limit Depth**: Keep paths to 3-4 levels when possible
 
-## Debug Mode
+## Debugging
 
-Enable debug mode for detailed traversal logging:
+Use `getQuery()` to inspect the built query and its eager loads before executing:
 
-```env
-APP_DEBUG=true
+```php
+$query = $service->getQuery($layout, $requestData);
+dd($query->toSql(), $query->getEagerLoads());
 ```
 
-**Log output:**
-```
-[INFO] Extracting value for path: workItem.workOrder.customer.name
-[INFO] Traversing segment: workItem -> WorkItem object
-[INFO] Traversing segment: workOrder -> WorkOrder object
-[INFO] Traversing segment: customer -> Customer object
-[INFO] Traversing segment: name -> "Acme Corp"
-```
+Errors and warnings are still written to the log.
 
 ## Related Documentation
 

@@ -1,0 +1,90 @@
+### `export_models`
+- `id` (`UUID`)
+- `title`
+- `model`
+- INDEX(`model`)
+### `export_model_relations`
+- `id` (`UUID`)
+- `export_model_id` (`export_models`)
+- `title` (`varchar`)
+- `relation` (`varchar`)
+	- Column or relation eloquent function
+- `column` (`nullable`|`varchar`)
+	- Target column for relationship filters
+- `related_model_id` (`nullable`|`export_models`)
+	- Eloquent functions related model
+- `is_column` (`boolean`)
+- `is_collection` (`boolean`)
+- `has_pivot` (`boolean`)
+	- True when the relation is a BelongsToMany with pivot columns
+- `pivot_columns` (`nullable`|`JSON`)
+	- Pivot column names detected on the relation
+- `metadata` (`nullable`|`JSON`)
+	- Extra configuration, e.g. `{"sort_column": "name"}` for related-column sorting
+- INDEX(`export_model_id`, `relation`, `related_model_id`)
+### `export_layouts`
+- `id` (`UUID`)
+- `export_model_id` (`export_models`)
+	- The entry point we'll use for reference
+- `name` (`varchar`)
+- `title` (`nullable`|`varchar`)
+- `description` (`nullable`|`varchar`)
+- `is_pivot` (`boolean`)
+	- True when the layout produces a pivot (crosstab) export
+- `pivot_config` (`nullable`|`JSON`)
+	- Pivot export configuration (group_by, pivot_relation, value_column, aggregation, ...)
+- INDEX(`export_model_id`, `name`)
+### `export_filters`
+- `id` (`UUID`)
+- `export_layout_id` (`export_layouts`)
+- `export_model_id` (`nullable`|`export_models`)
+- `export_model_relation_id` (`nullable`|`export_model_relations`)
+- `logical_operator` (`enum[and, or]`)
+- `operator` (`enum['=','>','<','>=','<=','in','between','like', 'null', 'json_contains', 'relation']`)
+- `value` (`nullable`|`text`|`JSON`)
+	- When null, it'll be assumed that this will be required by request
+- `value_type`
+	- This will be assumed by the relation
+- `is_request` (`boolean`)
+- `is_required` (`boolean`)
+- INDEX(`export_layout_id`, `export_model_id`, `export_model_relation_id`)
+### `export_sorts`
+- `id` (`UUID`)
+- `export_layout_id` (`export_layouts.id`)
+- `export_model_id` (`nullable` | `export_models.id`)
+- `export_model_relation_id` (`nullable` | `export_model_relations.id`)
+- `direction` (`enum['asc','desc']`)
+- `priority` (`integer`)
+	- Execution order (1 = first sort, 2 = second, ...)
+- INDEX(`export_layout_id`, `export_model_id`, `export_model_relation_id`, `priority`)
+### `export_functions`
+- `id` (`UUID`)
+- `name` (`varchar`)
+- `callable` (`varchar`)
+- `parameter_count` (`integer`)
+- `value_parameter_index` (`integer`)
+- `metadata` (`JSON`)
+	- This will be the "haystack" for the function
+- `unique(callable)`
+- INDEX(`name`)
+### `export_columns`
+- `export_layout_id` (`export_layouts`)
+- `export_function_id` (`nullable`|`export_functions`)
+- `export_function_values` (`nullable`|`JSON`)
+	- E.g. `implode`, values: \[',', \['value 1', 'value 2'\]\] :: "value 1,value 2"
+- `export_filter_id`
+- `export_filter_values` (`nullable`|`JSON`)
+- `export_model_relation_id` (`export_model_relations`)
+- `aggregator` (`nullable`|`ENUM('sum','avg','min','max','count','first','last')`)
+- `title` (`nullable`|`varchar`)
+- `value_path` (`varchar`)
+	- Dot notation of the relation
+- `default` (`nullable`|`varchar`)
+	- If the result is empty or null, this will be used in it's place
+- `position` (`integer`)
+- `is_expanded` (`boolean`)
+	- If a collection is selected, this will determine if they are their own columns or input as a specific value. E.g. JSON or delimited array.
+- `expansion_data` (`nullable`|`JSON`)
+- `omit_on_empty` (`boolean`)
+	- If the column is empty, output an empty string (keeps CSV columns aligned)
+- INDEX(`export_layout_id`, `export_function_id`, `export_model_relation_id`)

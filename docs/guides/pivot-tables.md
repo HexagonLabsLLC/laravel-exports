@@ -107,6 +107,7 @@ $userModel = ExportModel::where('title', 'User')->first();
 // Create layout
 $layout = ExportLayout::create([
     'export_model_id' => $userModel->id,
+    'name' => 'user_roles_export',
     'title' => 'User Roles Export',
 ]);
 

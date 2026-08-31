@@ -31,6 +31,7 @@ $userModel = ExportModel::where('title', 'User')->first();
 
 $layout = ExportLayout::create([
     'export_model_id' => $userModel->id,
+    'name' => 'active_users_2024',
     'title' => 'Active Users 2024',
 ]);
 
