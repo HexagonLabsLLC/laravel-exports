@@ -1,6 +1,6 @@
 # Laravel Exports Package - Development Tasks
 
-## 🔴 High Priority (Critical for v1.0)
+## High Priority (Critical for v1.0)
 
 - [x] Fix namespace issue in ExportInspector for ModelRelationInspector
 - [x] Implement ImportModelsCommand to auto-discover and register models
@@ -9,7 +9,7 @@
 - [x] Update DynamicExportService to handle column-specific filtering via export_filter_id
 - [x] Add support for new operators (json_contains, relation) in DynamicExportService
 
-## 🟡 Medium Priority (Enhanced functionality)
+## Medium Priority (Enhanced functionality)
 
 - [x] Add sorting support for related columns (currently has TODO)
 - [x] Create built-in transformation functions (date formatting, string manipulation, etc)
@@ -17,7 +17,7 @@
 - [ ] Add validation for export configurations
 - [ ] Implement proper handling of aggregations with the nullable aggregator field
 
-## 🟢 Low Priority (Future enhancements)
+## Low Priority (Future enhancements)
 
 - [ ] Consider adding more export formats (Excel, PDF)
 - [x] Add export scheduling/job support
@@ -33,12 +33,12 @@ All critical P1 and most P2 tasks have been completed! The package is production
 
 The core export functionality is fully implemented and production-ready. The main export pipeline works end-to-end with proper abstractions including:
 
-- ✅ Dynamic query building with filters and eager loading
-- ✅ Relationship traversal using dot notation
-- ✅ Multiple filter operators (=, !=, >, <, IN, BETWEEN, LIKE, NULL checks)
-- ✅ Aggregation support (sum, count, avg, min, max)
-- ✅ CSV and JSON export formats with streaming
-- ✅ Extensible architecture for custom export handlers
+- [x] Dynamic query building with filters and eager loading
+- [x] Relationship traversal using dot notation
+- [x] Multiple filter operators (=, !=, >, <, IN, BETWEEN, LIKE, NULL checks)
+- [x] Aggregation support (sum, count, avg, min, max)
+- [x] CSV and JSON export formats with streaming
+- [x] Extensible architecture for custom export handlers
 
 ### Recent Changes
 
@@ -247,7 +247,7 @@ The core export functionality is fully implemented and production-ready. The mai
   - When `ExportModelRelation` has `is_column = true` and contains dots, the system automatically:
     - Splits the last segment as the column name
     - Uses the remaining path as the relation
-    - Example: `workOrder.invoice.custom_id` → relation: `workOrder.invoice`, column: `custom_id`
+    - Example: `workOrder.invoice.custom_id` -> relation: `workOrder.invoice`, column: `custom_id`
   - Added `applySmartRelationFilter()` method to handle this parsing
   - Added `applyNestedWhereHas()` for proper handling of `in` and `not_in` operators with nested relations
   - Added `buildNestedQuery()` for recursive whereHas building
