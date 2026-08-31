@@ -5,7 +5,7 @@ This guide walks you through installing Laravel Exports and creating your first 
 ## Requirements
 
 - PHP 8.2 or higher
-- Laravel 12 or 13
+- Laravel 12.12+ or 13
 - Database with UUID support:
   - MySQL 5.7+
   - PostgreSQL 9.4+
@@ -77,7 +77,7 @@ php artisan export:import-models --filter=*User*
 
 ### 4. Seed Transformation Functions
 
-Add the 22 built-in transformation functions:
+Add the 23 built-in transformation functions:
 
 ```bash
 php artisan export:seed-functions
@@ -214,7 +214,7 @@ $joinedColumn = ExportColumn::where('export_layout_id', $layout->id)
 
 $joinedColumn->update([
     'export_function_id' => $formatDate->id,
-    'export_function_values' => json_encode(['F j, Y']), // "January 1, 2025"
+    'export_function_values' => [null, 'F j, Y'], // "January 1, 2025"
 ]);
 ```
 

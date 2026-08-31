@@ -40,7 +40,7 @@
 - `export_model_id` (`nullable`|`export_models`)
 - `export_model_relation_id` (`nullable`|`export_model_relations`)
 - `logical_operator` (`enum[and, or]`)
-- `operator` (`enum['=','>','<','>=','<=','in','between','like', 'null', 'json_contains', 'relation']`)
+- `operator` (`enum['=','!=','>','<','>=','<=','in','not_in','between','like', 'null', 'not_null', 'json_contains', 'relation']`)
 - `value` (`nullable`|`text`|`JSON`)
 	- When null, it'll be assumed that this will be required by request
 - `value_type`
@@ -62,19 +62,20 @@
 - `name` (`varchar`)
 - `callable` (`varchar`)
 - `parameter_count` (`integer`)
-- `value_parameter_index` (`integer`)
-- `metadata` (`JSON`)
+- `value_parameter_index` (`nullable`|`integer`)
+- `metadata` (`nullable`|`JSON`)
 	- This will be the "haystack" for the function
 - `unique(callable)`
 - INDEX(`name`)
 ### `export_columns`
+- `id` (`UUID`)
 - `export_layout_id` (`export_layouts`)
 - `export_function_id` (`nullable`|`export_functions`)
 - `export_function_values` (`nullable`|`JSON`)
 	- E.g. `implode`, values: \[',', \['value 1', 'value 2'\]\] :: "value 1,value 2"
-- `export_filter_id`
+- `export_filter_id` (`nullable`|`export_filters`)
 - `export_filter_values` (`nullable`|`JSON`)
-- `export_model_relation_id` (`export_model_relations`)
+- `export_model_relation_id` (`nullable`|`export_model_relations`)
 - `aggregator` (`nullable`|`ENUM('sum','avg','min','max','count','first','last')`)
 - `title` (`nullable`|`varchar`)
 - `value_path` (`varchar`)

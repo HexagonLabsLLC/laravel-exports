@@ -69,18 +69,20 @@ ExportSort::create([
 
 ### BelongsTo / HasOne Relations
 
-Sort by a related model's column using LEFT JOIN:
+Sort by a single-segment relation using LEFT JOIN. The related column defaults to `id` unless the relation's `metadata` sets `sort_column` (see below):
 
 ```php
-// Get the profile.company.name relation
-$companyNameRelation = ExportModelRelation::where('export_model_id', $userModel->id)
-    ->whereNested('profile.company.name')
+// Get the profile relation
+$profileRelation = ExportModelRelation::where('export_model_id', $userModel->id)
+    ->where('relation', 'profile')
     ->first();
 
-// Sort by company name
+// Sort by the profile's display_name column
+$profileRelation->update(['metadata' => ['sort_column' => 'display_name']]);
+
 ExportSort::create([
     'export_layout_id' => $layout->id,
-    'export_model_relation_id' => $companyNameRelation->id,
+    'export_model_relation_id' => $profileRelation->id,
     'direction' => 'asc',
     'priority' => 1,
 ]);
@@ -92,9 +94,39 @@ ExportSort::create([
 SELECT users.*
 FROM users
 LEFT JOIN profiles ON users.id = profiles.user_id
-LEFT JOIN companies ON profiles.company_id = companies.id
-ORDER BY companies.name ASC
+ORDER BY profiles.display_name ASC
 ```
+
+### Nested Relation Paths
+
+Nested paths (e.g. `profile.company.name`) do NOT generate multi-level LEFT JOINs. The service orders by a single correlated subquery on the FIRST segment of the path, and that subquery selects `id` unless the relation's `metadata` `sort_column` is set:
+
+```php
+$nestedRelation = ExportModelRelation::where('export_model_id', $userModel->id)
+    ->where('relation', 'profile.company.name')
+    ->first();
+
+ExportSort::create([
+    'export_layout_id' => $layout->id,
+    'export_model_relation_id' => $nestedRelation->id,
+    'direction' => 'asc',
+    'priority' => 1,
+]);
+```
+
+**Generated SQL (simplified):**
+
+```sql
+SELECT users.*
+FROM users
+ORDER BY (
+    SELECT id FROM profiles
+    WHERE users.id = profiles.user_id
+    LIMIT 1
+) ASC
+```
+
+To sort the subquery by a different column, set `sort_column` in the relation's `metadata`.
 
 ### HasMany / BelongsToMany Relations
 
@@ -176,10 +208,11 @@ ExportSort::create([
 ]);
 ```
 
-### Top Customers (By Order Total)
+### Top Customers (By Order Count)
+
+Collection relations (HasMany / BelongsToMany) sort by COUNT of related rows, not by a column total:
 
 ```php
-// Assuming orders.total aggregation
 $ordersRelation = ExportModelRelation::where('export_model_id', $customerModel->id)
     ->where('relation', 'orders')
     ->first();
@@ -187,7 +220,7 @@ $ordersRelation = ExportModelRelation::where('export_model_id', $customerModel->
 ExportSort::create([
     'export_layout_id' => $layout->id,
     'export_model_relation_id' => $ordersRelation->id,
-    'direction' => 'desc',  // Highest total first
+    'direction' => 'desc',  // Most orders first
     'priority' => 1,
 ]);
 ```

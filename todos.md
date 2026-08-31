@@ -64,7 +64,8 @@ The core export functionality is fully implemented and production-ready. The mai
   - **Laravel 13 readiness** (composer.json): `php ^8.2`, `illuminate/* ^12.12||^13.0` (contracts no longer allows a mismatched ^11), explicit requires for the illuminate components actually used, `orchestra/testbench ^10||^11`, `pest ^3||^4` (pest-plugin-laravel ^3 caps at Laravel 12 and was the hard blocker), `larastan ^3.10`, dropped redundant collision dev dependency. Service provider uses `publishesMigrations()` and typed returns.
   - **Simplification (deleted)**: six unused `src/Contracts/` interfaces; unregistered `TestDatabaseCommand` (`export:test-db` never worked and docs claimed otherwise); unused `ExportInspector` service (redundant with `export:import-models`); dead `OperatorTypeCast`; broken-and-uncalled `OperatorType::getCallableArguments()`/`builder()`; the seven config `export_*` model/table blocks nothing read; deprecated `relation()` aliases on ExportColumn/ExportFilter (internals use `modelRelation()`); stale `CLAUDE.continue.md`.
   - **Tooling**: added `phpstan.neon.dist` (level 5, clean: 152 errors fixed via model `@property` docblocks and real fixes; `tests/phpstan-bootstrap.php` works around a larastan 3.10 package-analysis crash) and `pint.json` (no space after `!` or casts).
-  - **Tests**: suite grew to 92 passing (334 assertions) with new regression coverage for parameterized functions, static array filters, row rectangularity, collection filter operators, pivot exports (first coverage of that path), JSON meta, and CSV injection guarding.
+  - **Tests**: suite grew to 95 passing (343 assertions) with new regression coverage for parameterized functions, static array filters, row rectangularity, collection filter operators, pivot exports (first coverage of that path), JSON meta, and CSV injection guarding.
+  - **Doc-verification round** (same day): two adversarial agents checked every doc claim against code. Code was aligned to documented behavior where docs described the clear intent: aggregation now runs before transformation functions (formatted sums work); relation-filtered collection columns with an aggregator aggregate over all matches; `value_path` plucks attributes across collection relations (`tags.value` + `sum`); `logical_operator` is case-insensitive (MySQL enum stores lowercase `or`); pivot `value_relation` may be empty for the base table; `--deep-level` clamps to 1-5. Doc-side fixes: `export_function_values` examples corrected to positional plain arrays (`[null, 'F j, Y']`, ~60 snippets), function count corrected to 23 with `Format Timestamp` documented, handler option names fixed (`include_headers`), `exportFunction()` relation name fixed, inert collection-filter examples given `export_model_relation_id` and item-relative filter paths, plus the user-level laravel-exports skill (protected `executePivotExport` call replaced with `executeExport`, same function-values fix). larastan's `LARAVEL_VERSION` constant is now defined via composer autoload-dev files so `phpstan` passes reliably.
 - **Fixed N+1 in relation-operator column filters** (`DynamicExportService::applyWhereRelationConstraints`): The PHP-level filtering refactor left dead code that appended sub-relation paths to an already-consumed `$relationsToLoad` array, causing lazy loads during collection filtering. Replaced with a dedicated `$constrainedRelationsToLoad` buffer and a trailing `$query->with(array_unique(...))`, so the constrained relation and its comparison sub-relations are eager-loaded.
 - **Added explicit `like` operator handling in `applyFilter`**: Laravel 11+ `whereLike`/`orWhereLike` take `(column, value)` not `(column, operator, value)`. The previous default branch passed 3 args, which would break at runtime.
 - **Guarded `is_column` relations** in `applySorts` and `buildEagerLoadArray` so direct model attributes aren't treated as Eloquent relationships.
@@ -138,13 +139,13 @@ The core export functionality is fully implemented and production-ready. The mai
   - **Model Casts Modernization**: Converted all models from `protected $casts` property to `casts()` method (Laravel 12 preferred style)
     - `ExportColumn`, `ExportFilter`, `ExportFunction`, `ExportModelRelation` updated
   - **Duplicate Relationship Deprecation**: Added `@deprecated` notice to duplicate `relation()` methods in `ExportColumn` and `ExportFilter`, recommending `modelRelation()` instead
-  - **Command Improvements**: `TestDatabaseCommand` now uses `int` return type and `self::SUCCESS`/`self::FAILURE` constants
+  - **Command Improvements**: `TestDatabaseCommand` (since removed) now uses `int` return type and `self::SUCCESS`/`self::FAILURE` constants
   - **Config Enhancements**: Added new configuration options:
     - `job_tries` (env: `EXPORT_JOB_TRIES`, default: 3)
     - `job_timeout` (env: `EXPORT_JOB_TIMEOUT`, default: 3600)
     - `fallback_attributes` for customizing value extraction from related objects
   - **Test Updates**: Updated `ValidationTest` to work with new `casts()` method syntax
-  - **Contracts/Interfaces Created**: New interface definitions for future service decomposition:
+  - **Contracts/Interfaces Created**: New interface definitions for future service decomposition (since removed as unused):
     - `QueryBuilderInterface`, `EagerLoaderInterface`, `ResultProcessorInterface`
     - `ValueExtractorInterface`, `FilterApplicatorInterface`, `FunctionApplicatorInterface`
 
@@ -516,11 +517,12 @@ php artisan export:seed-functions
 php artisan export:seed-functions --force
 ```
 
-This adds 22 transformation functions to the `export_functions` table that can be used in export columns:
+This adds 23 transformation functions to the `export_functions` table that can be used in export columns:
 
 **Date/Time Functions:**
 - `Format Date` - Format dates with custom patterns (e.g., "Y-m-d", "d/m/Y")
 - `Format Date Human` - Human-readable dates (e.g., "2 hours ago")
+- `Format Timestamp` - Format unix timestamps with custom patterns
 - `Date Difference` - Calculate difference between dates in various units
 
 **String Functions:**

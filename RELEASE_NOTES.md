@@ -52,6 +52,18 @@ or broken public surface.
 - `ProcessExportJob` passes explicit `fputcsv` enclosure/escape (PHP 8.4
   deprecation) and streams the finished file to storage instead of loading it
   into memory.
+- Aggregation now runs before transformation functions, so a summed column can
+  be formatted (sum then Format Currency) as the docs always described.
+- Relation-filtered collection columns with an aggregator now aggregate over
+  all matching items (count/sum/avg of a filtered subset); without an
+  aggregator they keep first-match extraction.
+- `value_path` like `orders.total` on a collection relation now plucks the
+  attribute across the collection, making sum/avg/min/max over related columns
+  work as documented.
+- `logical_operator` comparison is case-insensitive; the lowercase `or` that
+  MySQL's enum column stores now triggers OR grouping.
+- Pivot `value_relation` set to an empty string now cleanly means the base
+  table; `--deep-level` is clamped to the documented 1-5 range.
 
 ## Performance
 
@@ -66,7 +78,7 @@ or broken public surface.
 - `phpstan.neon.dist` at level 5, passing clean; models carry full `@property`
   docblocks for IDE support.
 - `pint.json` enforces `!$var` and `(bool)$var` spacing.
-- Test suite: 92 tests, 334 assertions, including first coverage of the pivot
+- Test suite: 95 tests, 343 assertions, including first coverage of the pivot
   export path.
 
 ## Upgrade notes

@@ -258,6 +258,7 @@ $containerFilter = ExportFilter::create([
 
 // Column uses this filter to extract
 ExportColumn::create([
+    'export_model_relation_id' => $identifiersRelation->id,  // the collection relation
     'export_filter_id' => $containerFilter->id,
     'title' => 'Container ID',
     'value_path' => 'identifiers.value',

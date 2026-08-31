@@ -34,7 +34,7 @@ The service loads the complete layout configuration including all related data.
 $layout = ExportLayout::with([
     'exportModel',
     'columns.modelRelation',
-    'columns.function',
+    'columns.exportFunction',
     'columns.filter',
     'filters.modelRelation',
     'sorts.modelRelation',
@@ -208,21 +208,21 @@ Processed data is converted to the requested format.
 #### CSV Output
 
 ```php
-$handler = new CsvExportHandler();
-$csv = $handler->export($data, [
+$handler = new CsvExportHandler($layout, [
     'delimiter' => ',',
     'enclosure' => '"',
-    'headers' => true,
+    'include_headers' => true,
 ]);
+$csv = $handler->export($data);
 ```
 
 #### JSON Output
 
 ```php
-$handler = new JsonExportHandler();
-$json = $handler->export($data, [
+$handler = new JsonExportHandler($layout, [
     'pretty' => true,
 ]);
+$json = $handler->export($data);
 ```
 
 #### Download Response

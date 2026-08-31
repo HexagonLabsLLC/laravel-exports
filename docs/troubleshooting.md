@@ -88,7 +88,8 @@ php artisan export:import-models --deep --deep-level=3
 
 3. Check path validation:
 ```php
-$valid = ModelRelationInspector::validateNestedPath(
+$inspector = app(ModelRelationInspector::class);
+$valid = $inspector->validateNestedPath(
     WorkItem::class,
     'workOrder.customer'
 );
@@ -155,7 +156,7 @@ php artisan export:seed-functions --force
 ```php
 // Filter must receive value
 $results = $service->executeExport($layout, [
-    'status' => 'active',  // Must match filter's request_key
+    'status' => 'active',  // Key must match the filter's relation name (or a supported variant)
 ]);
 ```
 
@@ -252,12 +253,12 @@ $relation = ExportModelRelation::where('relation', 'roles')->first();
 
 **Cause:** Data contains invalid UTF-8 characters.
 
-**Solution:**
+**Solution:** Clean the source data before exporting. The JSON handler supports these options: `pretty`, `unescaped_slashes`, `unescaped_unicode`, `wrap_data`, `include_meta`.
 
 ```php
-// Use encoding options
 $service->exportTo($layout, 'json', [], [
-    'options' => JSON_INVALID_UTF8_SUBSTITUTE,
+    'pretty' => true,
+    'unescaped_unicode' => true,
 ]);
 ```
 
@@ -380,7 +381,7 @@ php artisan queue:retry [job-id]
 
 ```php
 // Clear cache
-Cache::forget("export_status_{$exportId}");
+Cache::forget("export_status:{$exportId}");
 
 // Or check status TTL
 // config/laravel-exports.php

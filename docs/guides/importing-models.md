@@ -251,13 +251,13 @@ $emailRelation = ExportModelRelation::where('export_model_id', $userModel->id)
 Use the `whereNested` scope for nested paths:
 
 ```php
-// Find the posts.comments relation for User
+// Validate the posts.comments chain for User; returns the 'posts' relation row
 $relation = ExportModelRelation::where('export_model_id', $userModel->id)
     ->whereNested('posts.comments')
     ->first();
 ```
 
-The `whereNested` scope traverses the relationship chain to find the correct relation.
+The `whereNested` scope validates the full dot-notation path by traversing the relationship chain, then returns the relation row for the FIRST segment (here `posts`) - not a record holding the full dot path.
 
 ### All Relations for a Model
 

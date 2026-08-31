@@ -50,7 +50,7 @@ ExportColumn::create([
 | `omit_on_empty` | boolean | Output an empty string when the value is empty (keeps CSV columns aligned) |
 | `export_model_relation_id` | uuid | Link to relation (optional) |
 | `export_function_id` | uuid | Transformation function |
-| `export_function_values` | json | Function parameters |
+| `export_function_values` | json | Positional function parameters (`null` in the value slot) |
 | `export_filter_id` | uuid | Column-specific filter |
 | `aggregator` | enum | Aggregation for collections |
 
@@ -137,9 +137,9 @@ $requestData = [
 $service->executeExport($layout, $requestData);
 ```
 
-## Omit Empty Columns
+## Empty Column Values
 
-Skip columns with empty values:
+Output an empty string when the value is empty (the key stays in the row, keeping columns aligned):
 
 ```php
 ExportColumn::create([
@@ -166,7 +166,7 @@ ExportColumn::create([
     'title' => 'Joined',
     'value_path' => 'created_at',
     'export_function_id' => $formatDate->id,
-    'export_function_values' => json_encode(['F j, Y']),  // "January 1, 2025"
+    'export_function_values' => [null, 'F j, Y'],  // "January 1, 2025"
     'position' => 1,
 ]);
 ```
@@ -233,7 +233,7 @@ ExportColumn::create([
     'value_path' => 'orders.amount',
     'aggregator' => 'sum',
     'export_function_id' => $formatCurrency->id,
-    'export_function_values' => json_encode(['USD', 'en_US']),
+    'export_function_values' => [null, 'USD', 'en_US'],
     'default' => '$0.00',
     'position' => 5,
 ]);

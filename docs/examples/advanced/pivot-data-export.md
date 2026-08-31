@@ -100,7 +100,7 @@ $rolesRelation = ExportModelRelation::where('relation', 'roles')->first();
 ### 2. Create Layout
 
 ```php
-use HexagonLabsLLC\LaravelExports\Models\{ExportModel, ExportLayout, ExportColumn, ExportFunction};
+use HexagonLabsLLC\LaravelExports\Models\{ExportModel, ExportLayout, ExportColumn, ExportFilter, ExportFunction, ExportModelRelation};
 
 $userModel = ExportModel::where('title', 'User')->first();
 $formatDate = ExportFunction::where('name', 'Format Date')->first();
@@ -146,7 +146,7 @@ ExportColumn::create([
     'title' => 'Roles',
     'value_path' => 'roles.name',
     'export_function_id' => $arrayJoin->id,
-    'export_function_values' => json_encode([', ']),
+    'export_function_values' => [null, ', '],
     'position' => 4,
 ]);
 
@@ -162,22 +162,24 @@ ExportColumn::create([
 // Primary role assigned date (pivot)
 ExportColumn::create([
     'export_layout_id' => $layout->id,
+    'export_model_relation_id' => $rolesRelation->id,
     'title' => 'Role Assigned',
     'value_path' => 'roles.pivot.assigned_at',
     'aggregator' => 'first',
     'export_function_id' => $formatDate->id,
-    'export_function_values' => json_encode(['M j, Y']),
+    'export_function_values' => [null, 'M j, Y'],
     'position' => 6,
 ]);
 
 // Primary role expiry (pivot)
 ExportColumn::create([
     'export_layout_id' => $layout->id,
+    'export_model_relation_id' => $rolesRelation->id,
     'title' => 'Role Expires',
     'value_path' => 'roles.pivot.expires_at',
     'aggregator' => 'first',
     'export_function_id' => $formatDate->id,
-    'export_function_values' => json_encode(['M j, Y']),
+    'export_function_values' => [null, 'M j, Y'],
     'default' => 'Never',
     'position' => 7,
 ]);
@@ -222,9 +224,14 @@ Access pivot data using `.pivot.`:
 Export only users with unexpired roles:
 
 ```php
+// The filter relation lives on the collection item's export model (Role)
+// with an item-relative path - it is evaluated against each role
+$roleModel = ExportModel::where('title', 'Role')->first();
+
 $expiresRelation = ExportModelRelation::create([
-    'export_model_id' => $userModel->id,
-    'relation' => 'roles.pivot.expires_at',
+    'export_model_id' => $roleModel->id,
+    'relation' => 'pivot.expires_at',
+    'title' => 'Role Expires At',
     'is_column' => true,
 ]);
 
@@ -240,6 +247,7 @@ $activeFilter = ExportFilter::create([
 ExportColumn::create([
     'title' => 'Active Role',
     'value_path' => 'roles.name',
+    'export_model_relation_id' => $rolesRelation->id,
     'export_filter_id' => $activeFilter->id,
     'aggregator' => 'first',
 ]);
@@ -271,6 +279,19 @@ ExportColumn::create([
     'position' => 2,
 ]);
 
+// Members collection relation on the Project model
+$membersRelation = ExportModelRelation::where('export_model_id', $projectModel->id)
+    ->where('relation', 'members')
+    ->first();
+
+// Item-relative pivot path on the member's export model (User)
+$isLeadRelation = ExportModelRelation::create([
+    'export_model_id' => $memberUserModel->id,
+    'relation' => 'pivot.is_lead',
+    'title' => 'Is Lead',
+    'is_column' => true,
+]);
+
 // Filter for lead members
 $isLeadFilter = ExportFilter::create([
     'export_layout_id' => $layout->id,
@@ -283,6 +304,7 @@ $isLeadFilter = ExportFilter::create([
 ExportColumn::create([
     'title' => 'Lead',
     'value_path' => 'members.name',
+    'export_model_relation_id' => $membersRelation->id,
     'export_filter_id' => $isLeadFilter->id,
     'aggregator' => 'first',
     'default' => 'No lead',
@@ -293,6 +315,7 @@ ExportColumn::create([
 ExportColumn::create([
     'title' => 'Lead Role',
     'value_path' => 'members.pivot.role',
+    'export_model_relation_id' => $membersRelation->id,
     'export_filter_id' => $isLeadFilter->id,
     'aggregator' => 'first',
     'position' => 4,
@@ -302,6 +325,7 @@ ExportColumn::create([
 ExportColumn::create([
     'title' => 'Lead Since',
     'value_path' => 'members.pivot.joined_at',
+    'export_model_relation_id' => $membersRelation->id,
     'export_filter_id' => $isLeadFilter->id,
     'aggregator' => 'first',
     'export_function_id' => $formatDate->id,

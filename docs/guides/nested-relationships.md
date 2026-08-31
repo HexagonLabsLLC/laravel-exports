@@ -152,6 +152,7 @@ ExportColumn::create([
 $customerNameRelation = ExportModelRelation::create([
     'export_model_id' => $orderModel->id,
     'relation' => 'customer.company.name',
+    'title' => 'Customer Company Name',
     'is_column' => true,
 ]);
 
@@ -172,6 +173,7 @@ ExportFilter::create([
 $invoiceIdRelation = ExportModelRelation::create([
     'export_model_id' => $workItemModel->id,
     'relation' => 'workOrder.invoice.custom_id',
+    'title' => 'Invoice Custom ID',
     'is_column' => true,
 ]);
 

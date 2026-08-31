@@ -273,6 +273,7 @@ For nested columns with `is_column = true`, the system automatically parses the 
 $relation = ExportModelRelation::create([
     'export_model_id' => $workItemModel->id,
     'relation' => 'workOrder.invoice.custom_id',  // Full path
+    'title' => 'Invoice Custom ID',
     'is_column' => true,                           // Mark as column
 ]);
 

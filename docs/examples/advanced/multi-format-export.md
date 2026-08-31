@@ -43,7 +43,7 @@ ExportColumn::create([
     'title' => 'Total',
     'value_path' => 'total',
     'export_function_id' => $formatCurrency->id,
-    'export_function_values' => json_encode(['USD', 'en_US']),
+    'export_function_values' => [null, 'USD', 'en_US'],
     'position' => 3,
 ]);
 
@@ -52,7 +52,7 @@ ExportColumn::create([
     'title' => 'Date',
     'value_path' => 'created_at',
     'export_function_id' => $formatDate->id,
-    'export_function_values' => json_encode(['Y-m-d']),
+    'export_function_values' => [null, 'Y-m-d'],
     'position' => 4,
 ]);
 
@@ -111,7 +111,8 @@ return $service->downloadAs($layout, 'csv', 'orders.csv', $requestData, [
     'delimiter' => ',',      // Field separator (default: ,)
     'enclosure' => '"',      // Field enclosure (default: ")
     'escape' => '\\',        // Escape character (default: \)
-    'headers' => true,       // Include header row (default: true)
+    'include_headers' => true, // Include header row (default: true)
+    'bom' => false,          // Prepend UTF-8 BOM for Excel (default: false)
     'escape_formulas' => true, // Prefix =, +, -, @, tab, CR cells with ' (default: true)
 ]);
 ```
@@ -122,10 +123,11 @@ By default, cell values starting with `=`, `+`, `-`, `@`, a tab, or a carriage r
 
 ```php
 return $service->downloadAs($layout, 'json', 'orders.json', $requestData, [
-    'pretty' => true,        // Pretty print (default: false)
-    'options' => JSON_UNESCAPED_UNICODE,  // JSON flags
-    'wrap_data' => true,     // Wrap rows in a "data" key (default: true)
-    'include_meta' => true,  // Include metadata (default: true)
+    'pretty' => true,             // Pretty print (default: false)
+    'unescaped_slashes' => true,  // Do not escape slashes (default: true)
+    'unescaped_unicode' => true,  // Keep unicode characters (default: true)
+    'wrap_data' => true,          // Wrap rows in a "data" key (default: true)
+    'include_meta' => true,       // Include metadata (default: true)
 ]);
 ```
 
@@ -149,18 +151,18 @@ ORD-003,Bob Wilson,$320.00,2024-03-10,completed
 ```json
 [
     {
-        "order_number": "ORD-001",
-        "customer": "John Doe",
-        "total": "$150.00",
-        "date": "2024-01-15",
-        "status": "completed"
+        "Order Number": "ORD-001",
+        "Customer": "John Doe",
+        "Total": "$150.00",
+        "Date": "2024-01-15",
+        "Status": "completed"
     },
     {
-        "order_number": "ORD-002",
-        "customer": "Jane Smith",
-        "total": "$275.50",
-        "date": "2024-02-20",
-        "status": "pending"
+        "Order Number": "ORD-002",
+        "Customer": "Jane Smith",
+        "Total": "$275.50",
+        "Date": "2024-02-20",
+        "Status": "pending"
     }
 ]
 ```
@@ -168,7 +170,7 @@ ORD-003,Bob Wilson,$320.00,2024-03-10,completed
 ### JSON Output (Compact)
 
 ```json
-[{"order_number":"ORD-001","customer":"John Doe","total":"$150.00","date":"2024-01-15","status":"completed"},{"order_number":"ORD-002","customer":"Jane Smith","total":"$275.50","date":"2024-02-20","status":"pending"}]
+[{"Order Number":"ORD-001","Customer":"John Doe","Total":"$150.00","Date":"2024-01-15","Status":"completed"},{"Order Number":"ORD-002","Customer":"Jane Smith","Total":"$275.50","Date":"2024-02-20","Status":"pending"}]
 ```
 
 ## API Routes

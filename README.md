@@ -9,7 +9,7 @@ A powerful, database-driven export system for Laravel applications that provides
 - **Advanced Filtering** - Static filters, request-based filters, and collection filters
 - **Nested Relationship Support** - Export deeply nested data using dot notation
 - **Pivot Table Data** - Access BelongsToMany pivot attributes via `.pivot.` notation
-- **Transformation Functions** - 22 built-in functions for formatting dates, strings, numbers
+- **Transformation Functions** - 23 built-in functions for formatting dates, strings, numbers
 - **Aggregations** - Sum, count, average, min, max, first, last on collections
 - **Large Dataset Support** - Chunking, streaming, and background job processing
 - **Multiple Formats** - CSV and JSON out of the box, extensible for more
@@ -130,7 +130,7 @@ $status = ProcessExportJob::getStatus($exportId);
 ## Requirements
 
 - PHP 8.2+
-- Laravel 12 or 13
+- Laravel 12.12+ or 13
 - Database with UUID support
 
 ## Learn More
@@ -139,7 +139,7 @@ See the [full documentation](docs/index.md) for:
 
 - [Nested Relationships](docs/guides/nested-relationships.md) - Deep data traversal
 - [Pivot Tables](docs/guides/pivot-tables.md) - BelongsToMany pivot data
-- [Transformation Functions](docs/guides/transformation-functions.md) - All 22 functions
+- [Transformation Functions](docs/guides/transformation-functions.md) - All 23 functions
 - [Aggregations](docs/guides/aggregations.md) - Collection aggregation
 - [Large Datasets](docs/guides/large-datasets.md) - Performance optimization
 - [Background Jobs](docs/examples/large-scale/background-jobs.md) - Queue processing

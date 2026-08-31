@@ -62,7 +62,7 @@ ExportColumn::create([
     'title' => 'Account Balance',
     'value_path' => 'balance',
     'export_function_id' => $formatCurrency->id,
-    'export_function_values' => json_encode(['USD', 'en_US']),
+    'export_function_values' => [null, 'USD', 'en_US'],
     'position' => 2,
 ]);
 
@@ -72,7 +72,7 @@ ExportColumn::create([
     'title' => 'Active',
     'value_path' => 'is_active',
     'export_function_id' => $booleanText->id,
-    'export_function_values' => json_encode(['Yes', 'No']),
+    'export_function_values' => [null, 'Yes', 'No'],
     'position' => 3,
 ]);
 
@@ -82,7 +82,7 @@ ExportColumn::create([
     'title' => 'Member Since',
     'value_path' => 'created_at',
     'export_function_id' => $formatDate->id,
-    'export_function_values' => json_encode(['F j, Y']),  // "January 15, 2024"
+    'export_function_values' => [null, 'F j, Y'],  // "January 15, 2024"
     'position' => 4,
 ]);
 ```
@@ -116,23 +116,23 @@ Jane,$5,678.90,No,"February 20, 2024"
 
 ```php
 // ISO format
-'export_function_values' => json_encode(['Y-m-d'])
+'export_function_values' => [null, 'Y-m-d']
 // Output: "2024-01-15"
 
 // US format
-'export_function_values' => json_encode(['m/d/Y'])
+'export_function_values' => [null, 'm/d/Y']
 // Output: "01/15/2024"
 
 // European format
-'export_function_values' => json_encode(['d/m/Y'])
+'export_function_values' => [null, 'd/m/Y']
 // Output: "15/01/2024"
 
 // Full date
-'export_function_values' => json_encode(['l, F j, Y'])
+'export_function_values' => [null, 'l, F j, Y']
 // Output: "Monday, January 15, 2024"
 
 // With time
-'export_function_values' => json_encode(['M j, Y g:i A'])
+'export_function_values' => [null, 'M j, Y g:i A']
 // Output: "Jan 15, 2024 2:30 PM"
 ```
 
@@ -141,17 +141,17 @@ Jane,$5,678.90,No,"February 20, 2024"
 ```php
 // Format Number: decimals, thousands separator
 $formatNumber = ExportFunction::where('name', 'Format Number')->first();
-'export_function_values' => json_encode([2, ','])
+'export_function_values' => [null, 2, ',']
 // Output: 1234567 -> "1,234,567.00"
 
 // Round
 $round = ExportFunction::where('name', 'Round')->first();
-'export_function_values' => json_encode([2])
+'export_function_values' => [null, 2]
 // Output: 3.14159 -> 3.14
 
 // Percentage
 $percentage = ExportFunction::where('name', 'Percentage')->first();
-'export_function_values' => json_encode([1])
+'export_function_values' => [null, 1]
 // Output: 0.756 -> "75.6%"
 ```
 
@@ -159,15 +159,15 @@ $percentage = ExportFunction::where('name', 'Percentage')->first();
 
 ```php
 // USD
-'export_function_values' => json_encode(['USD', 'en_US'])
+'export_function_values' => [null, 'USD', 'en_US']
 // Output: "$1,234.56"
 
 // EUR
-'export_function_values' => json_encode(['EUR', 'de_DE'])
+'export_function_values' => [null, 'EUR', 'de_DE']
 // Output: "1.234,56 EUR"
 
 // GBP
-'export_function_values' => json_encode(['GBP', 'en_GB'])
+'export_function_values' => [null, 'GBP', 'en_GB']
 // Output: "1,234.56" prefixed with the pound sign
 ```
 
@@ -175,16 +175,16 @@ $percentage = ExportFunction::where('name', 'Percentage')->first();
 
 ```php
 // Yes/No (default)
-'export_function_values' => json_encode(['Yes', 'No'])
+'export_function_values' => [null, 'Yes', 'No']
 
 // Active/Inactive
-'export_function_values' => json_encode(['Active', 'Inactive'])
+'export_function_values' => [null, 'Active', 'Inactive']
 
 // Enabled/Disabled
-'export_function_values' => json_encode(['Enabled', 'Disabled'])
+'export_function_values' => [null, 'Enabled', 'Disabled']
 
 // Custom symbols
-'export_function_values' => json_encode(['V', 'X'])
+'export_function_values' => [null, 'V', 'X']
 ```
 
 ### String Manipulation
@@ -192,12 +192,12 @@ $percentage = ExportFunction::where('name', 'Percentage')->first();
 ```php
 // Truncate long text
 $truncate = ExportFunction::where('name', 'Truncate')->first();
-'export_function_values' => json_encode([50, '...'])
+'export_function_values' => [null, 50, '...']
 // Output: "This is a very long..." (50 chars max)
 
 // Mask sensitive data
 $mask = ExportFunction::where('name', 'Mask')->first();
-'export_function_values' => json_encode([4, '*'])
+'export_function_values' => [null, 4, '*']
 // Output: "1234567890" -> "1234******"
 ```
 
@@ -211,7 +211,7 @@ ExportColumn::create([
     'value_path' => 'orders.total',
     'aggregator' => 'sum',
     'export_function_id' => $formatCurrency->id,
-    'export_function_values' => json_encode(['USD', 'en_US']),
+    'export_function_values' => [null, 'USD', 'en_US'],
     'position' => 1,
 ]);
 ```
@@ -224,6 +224,6 @@ ExportColumn::create([
 ## Notes
 
 - Functions are applied after aggregations
-- Parameters are passed as JSON array
-- Use `export:seed-functions` to get all 22 built-in functions
+- Parameters are passed as a plain PHP array, positional, with `null` at the value position (index 0)
+- Use `export:seed-functions` to get all 23 built-in functions
 - See [Transformation Functions Guide](../../guides/transformation-functions.md) for full list

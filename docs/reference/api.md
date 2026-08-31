@@ -146,10 +146,10 @@ public function streamAs(
     array $requestData = [],
     array $options = [],
     int $chunkSize = 1000
-): Response
+): Response|StreamedResponse
 ```
 
-**Returns:** `Symfony\Component\HttpFoundation\StreamedResponse`
+**Returns:** `Illuminate\Http\Response` or `Symfony\Component\HttpFoundation\StreamedResponse`
 
 **Example:**
 ```php
@@ -196,12 +196,15 @@ Queue an export for background processing.
 ```php
 public function queueExport(
     ExportLayout|string $layout,
-    string $format,
-    array $requestData = []
+    string $format = 'csv',
+    array $requestData = [],
+    array $options = []
 ): string
 ```
 
 **Returns:** Export ID (UUID)
+
+**Options:** `disk` and `path` override the configured storage disk and path for the generated file.
 
 **Note:** Queued exports support only the `csv` and `json` formats. Other formats throw an `InvalidArgumentException`.
 
@@ -281,6 +284,7 @@ Static methods for data transformation.
 ```php
 TransformationFunctions::formatDate($date, $format = 'Y-m-d H:i:s')
 TransformationFunctions::formatDateHuman($date)
+TransformationFunctions::formatTimestamp($date, $format = 'Y-m-d H:i:s', $timezone = 'UTC')
 TransformationFunctions::dateDifference($date1, $date2 = null, $unit = 'days')
 ```
 
@@ -378,7 +382,7 @@ Defines a column in the export.
 - `export_function_id` (uuid, nullable)
 - `export_filter_id` (uuid, nullable)
 - `title` (string, nullable)
-- `value_path` (string, nullable)
+- `value_path` (string)
 - `default` (string, nullable)
 - `omit_on_empty` (boolean)
 - `aggregator` (enum, nullable) - sum, count, avg, min, max, first, last
@@ -389,7 +393,7 @@ Defines a column in the export.
 **Relationships:**
 - `layout()` - BelongsTo ExportLayout
 - `modelRelation()` - BelongsTo ExportModelRelation
-- `function()` - BelongsTo ExportFunction
+- `exportFunction()` - BelongsTo ExportFunction
 - `filter()` - BelongsTo ExportFilter
 
 ### ExportFilter
@@ -450,9 +454,10 @@ Represents model columns and relationships.
 - `metadata` (json, nullable) - Extra configuration, e.g. `{"sort_column": "name"}` for related-column sorting
 
 **Scopes:**
-- `whereNested(string $path)` - Filter by nested relationship path
+- `whereNested(string $path)` - Validates a dot-notation path by traversing the relationship chain, then matches the FIRST segment's relation row. The query returns the record for the first segment (e.g. `workItem`), not a record holding the full dot path.
 
 ```php
+// Returns the 'workItem' relation row if the full chain is valid
 ExportModelRelation::whereNested('workItem.workOrder.customer')->first();
 ```
 
@@ -466,15 +471,16 @@ ExportModelRelation::whereNested('workItem.workOrder.customer')->first();
 - `delimiter` (string) - Default: ','
 - `enclosure` (string) - Default: '"'
 - `escape` (string) - Default: '\\'
-- `headers` (boolean) - Default: true
+- `include_headers` (boolean) - Default: true
+- `bom` (boolean) - Default: false. Prepend a UTF-8 byte order mark for Excel compatibility.
 - `escape_formulas` (boolean) - Default: true. Guards against spreadsheet formula injection by prefixing cell values starting with `=`, `+`, `-`, `@`, tab, or carriage return with a single quote. Set to false to disable.
 
 ### JsonExportHandler
 
 **Options:**
 - `pretty` (boolean) - Default: false
-- `options` (integer) - JSON encoding options
-- `depth` (integer) - Default: 512
+- `unescaped_slashes` (boolean) - Default: true
+- `unescaped_unicode` (boolean) - Default: true
 - `wrap_data` (boolean) - Default: true. Wrap rows in a `data` key.
 - `include_meta` (boolean) - Default: true. Include metadata; when enabled, rows are always wrapped in a `data` key.
 
@@ -482,18 +488,22 @@ ExportModelRelation::whereNested('workItem.workOrder.customer')->first();
 
 ## ModelRelationInspector
 
-Discovers model attributes and relationships.
+Discovers model attributes and relationships. Methods are instance methods - resolve the inspector from the container:
+
+```php
+$inspector = app(ModelRelationInspector::class);
+```
 
 ### getModelColumns()
 
 ```php
-public static function getModelColumns(string $modelClass): array
+public function getModelColumns(string $modelClass): array
 ```
 
 ### getModelRelations()
 
 ```php
-public static function getModelRelations(string $modelClass): array
+public function getModelRelations(string $modelClass): array
 ```
 
 ---

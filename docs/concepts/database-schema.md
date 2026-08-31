@@ -167,11 +167,11 @@ Defines output columns for a layout.
 | `export_layout_id` | UUID | Foreign key to export_layouts |
 | `export_model_relation_id` | UUID (nullable) | Foreign key to export_model_relations |
 | `export_function_id` | UUID (nullable) | Foreign key to export_functions |
-| `export_function_values` | JSON (nullable) | Parameters for the function |
+| `export_function_values` | JSON (nullable) | Positional function parameters; `null` occupies the value slot (index 0 for built-ins) |
 | `export_filter_id` | UUID (nullable) | Column-specific filter |
 | `export_filter_values` | JSON (nullable) | Filter parameter overrides |
 | `title` | VARCHAR (nullable) | Column header |
-| `value_path` | VARCHAR (nullable) | Dot notation path to value |
+| `value_path` | VARCHAR | Dot notation path to value |
 | `default` | VARCHAR (nullable) | Default value when null/empty |
 | `aggregator` | ENUM (nullable) | sum, count, avg, min, max, first, last |
 | `position` | INTEGER | Column display order |
@@ -200,7 +200,7 @@ ExportColumn::create([
     'title' => 'Member Since',
     'value_path' => 'created_at',
     'export_function_id' => $formatDateFunction->id,
-    'export_function_values' => json_encode(['F j, Y']),
+    'export_function_values' => [null, 'F j, Y'],
     'position' => 2,
 ]);
 ```
@@ -370,7 +370,7 @@ $layout->sorts();               // HasMany ExportSort
 // ExportColumn
 $column->layout();              // BelongsTo ExportLayout
 $column->modelRelation();       // BelongsTo ExportModelRelation
-$column->function();            // BelongsTo ExportFunction
+$column->exportFunction();      // BelongsTo ExportFunction
 $column->filter();              // BelongsTo ExportFilter
 
 // ExportFilter

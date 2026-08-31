@@ -8,7 +8,7 @@ Laravel Exports is a powerful, database-driven export system for Laravel applica
 - **Dynamic Model Discovery** - Auto-import Eloquent models and relationships
 - **Advanced Filtering** - Static, request-based, and collection filters
 - **Nested Relationships** - Export deeply nested data using dot notation
-- **Transformation Functions** - 22 built-in functions for data formatting
+- **Transformation Functions** - 23 built-in functions for data formatting
 - **Aggregations** - sum, count, avg, min, max, first, last on collections
 - **Performance Optimized** - Smart eager loading, chunking, and streaming
 - **Multiple Formats** - CSV and JSON with extensible architecture
@@ -72,7 +72,7 @@ Laravel Exports is a powerful, database-driven export system for Laravel applica
 ## Requirements
 
 - PHP 8.2 or higher
-- Laravel 12 or 13
+- Laravel 12.12+ or 13
 - Database with UUID support (MySQL 5.7+, PostgreSQL 9.4+, SQLite 3.8+)
 
 ## Quick Start

@@ -39,7 +39,7 @@ This is a Laravel package that provides a comprehensive, database-driven export 
 
 - **DynamicExportService** (`src/Services/DynamicExportService.php`): Main export execution engine with enhanced relation handling and validation
 - **ModelRelationInspector** (`src/Helpers/ModelRelationInspector.php`): Discovers model columns and relationships using reflection with transaction safety
-- **TransformationFunctions** (`src/Services/TransformationFunctions.php`): Provides 22 built-in transformation functions for data formatting
+- **TransformationFunctions** (`src/Services/TransformationFunctions.php`): Provides 23 built-in transformation functions for data formatting
 - **ExportFactory** (`src/Exports/ExportFactory.php`): Factory for creating export handlers (CSV, JSON, etc.)
 
 ### Database Schema
@@ -63,7 +63,7 @@ The package uses 7 tables that work together (all using UUIDs as primary keys):
    - Column filters with relation operator (eager loading constraints only)
 4. **Operator Types**: All filter operators are defined in `src/Enums/OperatorType.php` with their query builder implementations
 5. **Function Pipeline**: Columns can apply transformation functions stored in `export_functions` table
-6. **Aggregations**: Built-in support for sum, count, avg, min, max on collection relationships
+6. **Aggregations**: Built-in support for sum, count, avg, min, max, first, last on collection relationships
 7. **Smart Eager Loading**: The service automatically determines required relations and loads intermediate paths
 8. **Validation & Debugging**: Built-in validation catches configuration errors; `getQuery($layout, $requestData)` returns the built query for inspection, and errors and warnings are logged
 
@@ -81,6 +81,7 @@ src/
 `-- Facades/         # Laravel facade for package
 
 docs/                # Documentation for Claude's reference
+|-- index.md         # Docs index
 |-- getting-started.md   # Install and first export
 |-- configuration.md     # Config reference
 |-- troubleshooting.md   # Common issues
@@ -114,13 +115,13 @@ docs/                # Documentation for Claude's reference
    - Supports dot notation for deep relationship traversal
 
 3. **Transformation Functions**:
-   - 22 built-in functions available via `php artisan export:seed-functions`
+   - 23 built-in functions available via `php artisan export:seed-functions`
    - Categories: Date/Time, String, Number, Boolean, Array/JSON, and Utility functions
    - Each function has configuration parameters for customization
 
 4. **Export Handlers**:
    - Streaming support for large datasets in both CSV and JSON formats
-   - Memory-efficient processing using Laravel's lazy collections
+   - Memory-efficient processing via chunked queries and streamed responses
    - Extensible architecture for custom export formats
 
 ### Workflow Reminders

@@ -206,7 +206,7 @@ ExportColumn::create([
     'value_path' => 'orders.total',
     'aggregator' => 'sum',
     'export_function_id' => $formatCurrency->id,
-    'export_function_values' => json_encode(['USD', 'en_US']),
+    'export_function_values' => [null, 'USD', 'en_US'],
     'position' => 1,
 ]);
 ```

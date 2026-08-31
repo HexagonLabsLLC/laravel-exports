@@ -186,6 +186,7 @@ ExportFilter::create([
 $customerIdRelation = ExportModelRelation::create([
     'export_model_id' => $workItemModel->id,
     'relation' => 'workOrder.customer.id',
+    'title' => 'Customer ID',
     'is_column' => true,
 ]);
 
@@ -205,12 +206,17 @@ $service->executeExport($layout, [
 
 ## Sorting by Nested Columns
 
+Nested-path sorting uses a single correlated subquery on the FIRST segment of the path (here `workOrder`), sorting by that related model's `id` unless the relation's `metadata` `sort_column` is set. It does not build multi-level joins to the deeper segments:
+
 ```php
 use HexagonLabsLLC\LaravelExports\Models\ExportSort;
 
 $customerNameRelation = ExportModelRelation::where('export_model_id', $workItemModel->id)
-    ->whereNested('workOrder.customer.name')
+    ->where('relation', 'workOrder.customer.name')
     ->first();
+
+// Optional: sort the subquery by a specific column of the first segment
+$customerNameRelation->update(['metadata' => ['sort_column' => 'customer_id']]);
 
 ExportSort::create([
     'export_layout_id' => $layout->id,

@@ -244,25 +244,17 @@ Specify the expected value type:
 
 ## Request Parameter Matching
 
-The system matches request parameters flexibly:
+The system matches request parameter names against these variants (matching is case-sensitive): the exact name, its lowercased form, its snake_case form, the name with dots replaced by underscores, and the filter's UUID:
 
 ```php
-// Filter configured for 'created_at'
+// Filter configured for 'workOrder.invoice.custom_id'
 
 // All of these work:
-$requestData = ['created_at' => ['2024-01-01', '2024-12-31']];
-$requestData = ['createdat' => ['2024-01-01', '2024-12-31']];
-$requestData = ['CREATED_AT' => ['2024-01-01', '2024-12-31']];
-```
-
-For nested relations:
-
-```php
-// Filter for 'workOrder.invoice.custom_id'
-
-$requestData = ['workOrder.invoice.custom_id' => 'value'];
-$requestData = ['work_order.invoice.custom_id' => 'value'];
-$requestData = ['workOrder_invoice_custom_id' => 'value'];
+$requestData = ['workOrder.invoice.custom_id' => 'value'];   // Exact
+$requestData = ['workorder.invoice.custom_id' => 'value'];   // Lowercase
+$requestData = ['work_order.invoice.custom_id' => 'value'];  // Snake case
+$requestData = ['workOrder_invoice_custom_id' => 'value'];   // Underscores
+$requestData = [$filter->id => 'value'];                     // Filter UUID
 ```
 
 ## Filtering Related Data
@@ -294,6 +286,7 @@ For nested columns, the system automatically parses the path:
 $invoiceIdRelation = ExportModelRelation::create([
     'export_model_id' => $workItemModel->id,
     'relation' => 'workOrder.invoice.custom_id',
+    'title' => 'Invoice Custom ID',
     'is_column' => true,  // Mark as column, not relation
 ]);
 

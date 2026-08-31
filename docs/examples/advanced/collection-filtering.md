@@ -85,16 +85,20 @@ $identifiersRelation = ExportModelRelation::where('export_model_id', $workItemMo
     ->where('relation', 'identifiers')
     ->first();
 
-// Relation to identifier type title (for filtering)
-$typeRelation = ExportModelRelation::where('export_model_id', $workItemModel->id)
-    ->whereNested('identifiers.type.title')
+// Relation used for filtering. It is defined on the collection item's
+// export model (Identifier) with an item-relative path, because the
+// filter is evaluated against each identifier in the collection.
+$identifierModel = ExportModel::where('title', 'Identifier')->first();
+
+$typeRelation = ExportModelRelation::where('export_model_id', $identifierModel->id)
+    ->whereNested('type.title')
     ->first();
 
 // If not found, create it
 if (!$typeRelation) {
     $typeRelation = ExportModelRelation::create([
-        'export_model_id' => $workItemModel->id,
-        'relation' => 'identifiers.type.title',
+        'export_model_id' => $identifierModel->id,
+        'relation' => 'type.title',
         'title' => 'Identifier Type Title',
         'is_column' => false,
     ]);
@@ -210,9 +214,12 @@ If your identifier has a `type` string column instead of a relationship:
 // identifiers table: work_item_id, type, value
 // type values: 'container', 'tracking', 'reference'
 
+$identifierModel = ExportModel::where('title', 'Identifier')->first();
+
 $typeColumnRelation = ExportModelRelation::create([
-    'export_model_id' => $workItemModel->id,
-    'relation' => 'identifiers.type',
+    'export_model_id' => $identifierModel->id,
+    'relation' => 'type',  // Item-relative path on the Identifier model
+    'title' => 'Identifier Type',
     'is_column' => true,
 ]);
 
@@ -233,12 +240,13 @@ $arrayJoin = ExportFunction::where('name', 'Array Join')->first();
 
 ExportColumn::create([
     'export_layout_id' => $layout->id,
+    'export_model_relation_id' => $identifiersRelation->id,
     'export_filter_id' => $trackingFilter->id,
     'title' => 'All Tracking Numbers',
     'value_path' => 'identifiers.value',
     // No aggregator - get all values
     'export_function_id' => $arrayJoin->id,
-    'export_function_values' => json_encode([', ']),
+    'export_function_values' => [null, ', '],
     'position' => 5,
 ]);
 ```
@@ -248,6 +256,7 @@ ExportColumn::create([
 ```php
 ExportColumn::create([
     'export_layout_id' => $layout->id,
+    'export_model_relation_id' => $identifiersRelation->id,
     'export_filter_id' => $trackingFilter->id,
     'title' => 'Tracking Count',
     'value_path' => 'identifiers',
@@ -261,11 +270,15 @@ ExportColumn::create([
 
 ```php
 // User has many contacts: primary, billing, shipping
+$contactsRelation = ExportModelRelation::where('export_model_id', $userModel->id)
+    ->where('relation', 'contacts')
+    ->first();
 
 // Primary email
 ExportColumn::create([
     'title' => 'Primary Email',
     'value_path' => 'contacts.email',
+    'export_model_relation_id' => $contactsRelation->id,
     'export_filter_id' => $primaryFilter->id,  // type = 'primary'
     'aggregator' => 'first',
 ]);
@@ -274,6 +287,7 @@ ExportColumn::create([
 ExportColumn::create([
     'title' => 'Billing Email',
     'value_path' => 'contacts.email',
+    'export_model_relation_id' => $contactsRelation->id,
     'export_filter_id' => $billingFilter->id,  // type = 'billing'
     'aggregator' => 'first',
 ]);

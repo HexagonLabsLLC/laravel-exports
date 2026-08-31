@@ -190,18 +190,18 @@ POST /api/exports/orders
 
 ## Parameter Name Matching
 
-The system matches parameters flexibly:
+The system matches parameter names against these variants (matching is case-sensitive): exact name, lowercased name, snake_case name, dots replaced by underscores, and the filter's UUID:
 
 ```php
-// Filter for 'created_at' matches any of:
-'created_at'     // Exact match
-'createdat'      // Lowercase no underscore
-'CREATED_AT'     // Uppercase
+// Filter for 'customer.name' matches any of:
+'customer.name'   // Exact match
+'customer_name'   // Dots replaced by underscores
+$filter->id       // Filter UUID
 
-// For nested filters like 'customer.name':
-'customer.name'
-'customer_name'
-'customerName'
+// For camelCase paths like 'workOrder.invoice.custom_id':
+'workorder.invoice.custom_id'   // Lowercase
+'work_order.invoice.custom_id'  // Snake case
+'workOrder_invoice_custom_id'   // Underscores
 ```
 
 ## Combining Static and Dynamic Filters

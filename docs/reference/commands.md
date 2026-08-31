@@ -21,7 +21,8 @@ php artisan export:import-models [options]
 | `--force` | Re-import existing models | false |
 | `--skip-relations` | Skip syncing columns and relationships | false |
 | `--deep` | Discover nested relationships | false |
-| `--deep-level` | Maximum depth for nested discovery | 2 |
+| `--deep-level` | Maximum depth for nested discovery (clamped to 1-5) | 2 |
+| `--deep-columns` | Create nested column paths during deep discovery | false |
 
 ### Basic Usage
 
@@ -78,8 +79,11 @@ php artisan export:import-models --deep
 # Discover up to 3 levels deep
 php artisan export:import-models --deep --deep-level=3
 
-# Maximum 5 levels
+# Maximum 5 levels (values outside 1-5 are clamped)
 php artisan export:import-models --deep --deep-level=5
+
+# Also create nested column paths during deep discovery
+php artisan export:import-models --deep --deep-columns
 ```
 
 ### What Gets Discovered
@@ -154,9 +158,10 @@ php artisan export:seed-functions --force
 
 ### Functions Seeded
 
-**Date/Time (3):**
+**Date/Time (4):**
 - Format Date
 - Format Date Human
+- Format Timestamp
 - Date Difference
 
 **String (7):**
@@ -188,23 +193,24 @@ php artisan export:seed-functions --force
 - Hash
 - Mask
 
-**Total: 22 functions**
+**Total: 23 functions**
 
 ### Output Example
 
 ```
 Seeding transformation functions...
 
-  [1/22] Format Date - created
-  [2/22] Format Date Human - created
-  [3/22] Date Difference - created
+  [1/23] Format Date - created
+  [2/23] Format Date Human - created
+  [3/23] Format Timestamp - created
+  [4/23] Date Difference - created
   ...
-  [20/22] Hash - created
-  [21/22] Mask - already exists (use --force to update)
-  [22/22] Default Value - created
+  [21/23] Concatenate - created
+  [22/23] Hash - already exists (use --force to update)
+  [23/23] Mask - created
 
 Seeding complete!
-  Created: 21
+  Created: 22
   Skipped: 1
 ```
 

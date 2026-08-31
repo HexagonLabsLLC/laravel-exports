@@ -289,8 +289,8 @@ EXPORT_DISK=exports
 ## Status Lifecycle
 
 ```
-queued -> processing -> completed
-                    \-> failed
+processing -> completed
+          \-> failed
 ```
 
 **Status values:**
@@ -321,8 +321,8 @@ Configure retries in the job:
 
 class CustomExportJob extends ProcessExportJob
 {
-    public $tries = 3;
-    public $backoff = [60, 120, 300];  // Seconds between retries
+    public int $tries = 3;
+    public array $backoff = [60, 120, 300];  // Seconds between retries
 }
 ```
 

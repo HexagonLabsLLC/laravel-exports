@@ -79,7 +79,8 @@ laravel-exports/
 |   |   |   |-- ImportModelsCommandTest.php
 |   |   |   `-- SeedTransformationFunctionsCommandTest.php
 |   |   `-- Services/
-|   |       `-- DynamicExportServiceTest.php
+|   |       |-- DynamicExportServiceTest.php
+|   |       `-- ExportRegressionTest.php
 |   |
 |   |-- Unit/
 |   |   |-- Exports/
@@ -104,14 +105,19 @@ laravel-exports/
 |   |   `-- User.php
 |   |
 |   |-- Pest.php                  # Pest configuration
-|   `-- TestCase.php              # Base test case
+|   |-- TestCase.php              # Base test case
+|   `-- phpstan-bootstrap.php     # PHPStan bootstrap for test analysis
 |
 |-- .gitignore
 |-- CLAUDE.md                     # Development guidelines for Claude AI
 |-- composer.json
 |-- database.md                   # Database schema documentation
+|-- phpstan.neon.dist             # PHPStan/Larastan configuration
 |-- phpunit.xml
+|-- phpunit.xml.dist              # PHPUnit configuration for fresh clones
+|-- pint.json                     # Laravel Pint code style configuration
 |-- README.md
+|-- RELEASE_NOTES.md              # Release notes
 `-- todos.md                      # Development task tracking
 ```
 

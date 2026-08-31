@@ -84,7 +84,7 @@ class ExportController extends Controller
     private function getFormatOptions(string $format): array
     {
         return match ($format) {
-            'csv' => ['delimiter' => ',', 'headers' => true],
+            'csv' => ['delimiter' => ',', 'include_headers' => true],
             'json' => ['pretty' => false],
             default => [],
         };
@@ -113,7 +113,8 @@ return $service->streamAs(
         'delimiter' => ',',      // Field delimiter
         'enclosure' => '"',      // Text enclosure
         'escape' => '\\',        // Escape character
-        'headers' => true,       // Include header row
+        'include_headers' => true, // Include header row
+        'bom' => false,          // Prepend UTF-8 BOM for Excel
     ],
     500  // Chunk size
 );

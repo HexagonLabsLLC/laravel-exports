@@ -73,7 +73,7 @@ ExportColumn::create([
     'value_path' => 'orders.total',
     'aggregator' => 'sum',
     'export_function_id' => $formatCurrency->id,
-    'export_function_values' => json_encode(['USD', 'en_US']),
+    'export_function_values' => [null, 'USD', 'en_US'],
     'default' => '$0.00',
     'position' => 3,
 ]);
@@ -85,7 +85,7 @@ ExportColumn::create([
     'value_path' => 'orders.total',
     'aggregator' => 'avg',
     'export_function_id' => $formatCurrency->id,
-    'export_function_values' => json_encode(['USD', 'en_US']),
+    'export_function_values' => [null, 'USD', 'en_US'],
     'default' => '$0.00',
     'position' => 4,
 ]);
@@ -97,7 +97,7 @@ ExportColumn::create([
     'value_path' => 'orders.total',
     'aggregator' => 'max',
     'export_function_id' => $formatCurrency->id,
-    'export_function_values' => json_encode(['USD', 'en_US']),
+    'export_function_values' => [null, 'USD', 'en_US'],
     'default' => '-',
     'position' => 5,
 ]);
@@ -109,7 +109,7 @@ ExportColumn::create([
     'value_path' => 'orders.total',
     'aggregator' => 'min',
     'export_function_id' => $formatCurrency->id,
-    'export_function_values' => json_encode(['USD', 'en_US']),
+    'export_function_values' => [null, 'USD', 'en_US'],
     'default' => '-',
     'position' => 6,
 ]);
@@ -121,7 +121,7 @@ ExportColumn::create([
     'value_path' => 'orders.created_at',
     'aggregator' => 'first',
     'export_function_id' => $formatDate->id,
-    'export_function_values' => json_encode(['M j, Y']),
+    'export_function_values' => [null, 'M j, Y'],
     'default' => 'Never',
     'position' => 7,
 ]);
@@ -133,7 +133,7 @@ ExportColumn::create([
     'value_path' => 'orders.created_at',
     'aggregator' => 'last',
     'export_function_id' => $formatDate->id,
-    'export_function_values' => json_encode(['M j, Y']),
+    'export_function_values' => [null, 'M j, Y'],
     'default' => 'Never',
     'position' => 8,
 ]);
@@ -219,7 +219,7 @@ ExportColumn::create([
     'value_path' => 'orders.total',
     'aggregator' => 'sum',
     'export_function_id' => $formatCurrency->id,
-    'export_function_values' => json_encode(['USD', 'en_US']),
+    'export_function_values' => [null, 'USD', 'en_US'],
     'default' => '$0.00',
     'position' => 10,
 ]);
