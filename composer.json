@@ -32,7 +32,10 @@
     "autoload-dev": {
         "psr-4": {
             "HexagonLabsLLC\\LaravelExports\\Tests\\": "tests/"
-        }
+        },
+        "files": [
+            "tests/phpstan-bootstrap.php"
+        ]
     },
     "extra": {
         "laravel": {
