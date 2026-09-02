@@ -225,6 +225,57 @@ it('executes pivot exports with a joined value relation', function () {
         ->and($rows['Jane Smith']['Total'])->toBe('30.00');
 });
 
+it('renders grouped pivot output with header rows and custom headers', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->postExportModel->id,
+        'name' => 'Grouped Pivot Export',
+        'is_pivot' => true,
+        'pivot_config' => [
+            'group_by' => ['user.name'],
+            'sub_group_by' => ['title'],
+            'pivot_relation' => 'tags.category.name',
+            'pivot_column' => 'name',
+            'value_relation' => 'tags',
+            'value_column' => 'value',
+            'aggregation' => 'sum',
+            'output_format' => 'grouped',
+            'group_by_headers' => ['Author'],
+            'sub_group_by_headers' => ['Post'],
+            'total_header' => 'Sum',
+        ],
+    ]);
+
+    $result = $this->service->executeExport($layout->id)->toArray();
+
+    // Two group header rows (Jane, John) plus three sub-rows
+    expect($result)->toHaveCount(5);
+
+    foreach ($result as $row) {
+        expect(array_keys($row))->toBe(['Author', 'Post', 'Business', 'Lifestyle', 'Technology', 'Sum']);
+    }
+
+    // Group header rows carry only the group value
+    expect($result[0]['Author'])->toBe('Jane Smith')
+        ->and($result[0]['Post'])->toBe('')
+        ->and($result[0]['Sum'])->toBe('');
+
+    // Sub-rows blank the group column and carry the aggregated values
+    expect($result[1]['Author'])->toBe('')
+        ->and($result[1]['Post'])->toBe('Third Post')
+        ->and($result[1]['Lifestyle'])->toBe('30.00')
+        ->and($result[1]['Sum'])->toBe('30.00');
+
+    expect($result[2]['Author'])->toBe('John Doe')
+        ->and($result[3]['Post'])->toBe('First Post')
+        ->and($result[3]['Technology'])->toBe('120.00')
+        ->and($result[3]['Lifestyle'])->toBe('50.00')
+        ->and($result[3]['Sum'])->toBe('170.00')
+        ->and($result[4]['Post'])->toBe('Second Post')
+        ->and($result[4]['Business'])->toBe('200.00')
+        ->and($result[4]['Technology'])->toBe('75.00')
+        ->and($result[4]['Sum'])->toBe('275.00');
+});
+
 it('aggregates values plucked from a collection relation and formats the result', function () {
     $function = ExportFunction::create([
         'name' => 'Format Number',
