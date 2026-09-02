@@ -167,6 +167,9 @@ those shipped under that numbering.)
   table; `--deep-level` is clamped to the documented 1-5 range.
 - `export:import-models --filter` actually filters (it was parsed and logged
   but never applied).
+- `column_definitions` written through Eloquent are stored as an ordered list,
+  so column order survives MySQL's JSON type discarding object key order (raw
+  SQL inserts on MySQL should use the list form or explicit positions).
 
 ## Performance
 
