@@ -160,8 +160,11 @@ class ExportLayout extends Model
 
     public function filters(): HasMany
     {
+        // Ordered by id (HasUuids generates ordered uuids) so filter
+        // application - and or-group placement - follows creation order
         return $this->hasMany(ExportFilter::class, 'export_layout_id')
-            ->whereNotNull('export_model_relation_id');
+            ->whereNotNull('export_model_relation_id')
+            ->orderBy('id');
     }
 
     public function columns(): HasMany

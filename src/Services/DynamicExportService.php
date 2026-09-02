@@ -248,34 +248,23 @@ class DynamicExportService
             }
         }
 
-        // Apply all filters with conflict resolution
-        $this->filters->each(function (ExportFilter $filter) use (&$query, $activeRequestParams) {
+        // Resolve each filter's value with conflict resolution
+        $applicable = [];
+        foreach ($this->filters as $filter) {
             // Get the column name from the relation
             $columnName = $this->getFilterColumnName($filter);
             // Skip static filters if there's an active request filter for the same parameter
             if (!$filter->is_request && in_array($columnName, $activeRequestParams)) {
-
-                return; // Skip this static filter
+                continue;
             }
             // For request filters, try multiple ways to get the parameter value
             if ($filter->is_request) {
                 $value = null;
-                // Try different parameter name patterns
                 $possibleKeys = $this->getPossibleRequestKeys($columnName, $filter->id);
 
                 foreach ($possibleKeys as $key) {
                     if (isset($this->requestData[$key])) {
-                        $value = $this->requestData[$key];
-
-                        // Handle array values for operators that expect arrays
-                        if (in_array($filter->operator, ['in', 'not_in', 'between']) && is_string($value)) {
-                            if (strpos($value, ',') !== false) {
-                                $value = array_map('trim', explode(',', $value));
-                            } else {
-                                $value = [$value];
-                            }
-                        }
-
+                        $value = $this->coerceRequestValue($filter, $this->requestData[$key]);
                         break;
                     }
                 }
@@ -288,16 +277,59 @@ class DynamicExportService
             }
             // Skip if no value and not checking for null
             if ($value === null && !in_array($filter->operator, ['null', 'not_null'])) {
-                return;
+                continue;
             }
 
-            // Apply the filter
-            $this->applyFilter($query, $filter, $value);
-        });
+            $applicable[] = [$filter, $value];
+        }
+
+        // An 'or' filter groups with the filter before it (and any continuing
+        // 'or' run); groups are ANDed together so an or-pair cannot disjoin an
+        // unrelated scoping filter: A, or B, C => (A OR B) AND C
+        $groups = [];
+        foreach ($applicable as $entry) {
+            $isOr = strcasecmp((string)$entry[0]->logical_operator, 'or') === 0;
+
+            if ($isOr && $groups !== []) {
+                $groups[array_key_last($groups)][] = $entry;
+            } else {
+                $groups[] = [$entry];
+            }
+        }
+
+        foreach ($groups as $group) {
+            if (count($group) === 1) {
+                $this->applyFilter($query, $group[0][0], $group[0][1]);
+
+                continue;
+            }
+
+            $query->where(function ($grouped) use ($group) {
+                foreach ($group as [$filter, $value]) {
+                    $this->applyFilter($grouped, $filter, $value);
+                }
+            });
+        }
+
         // Apply column-specific filters
         $this->applyColumnFilters($query);
 
         return $query;
+    }
+
+    /**
+     * Coerce a raw request value for a filter: array-shaped operators accept
+     * comma-separated strings.
+     */
+    protected function coerceRequestValue(ExportFilter $filter, $value)
+    {
+        if (in_array($filter->operator, ['in', 'not_in', 'between'], true) && is_string($value)) {
+            return strpos($value, ',') !== false
+                ? array_map('trim', explode(',', $value))
+                : [$value];
+        }
+
+        return $value;
     }
 
     /**
@@ -491,7 +523,7 @@ class DynamicExportService
                 $possibleKeys = $this->getPossibleRequestKeys($columnName, $columnFilter->id);
                 foreach ($possibleKeys as $key) {
                     if (isset($this->requestData[$key])) {
-                        $value = $this->requestData[$key];
+                        $value = $this->coerceRequestValue($columnFilter, $this->requestData[$key]);
                         break;
                     }
                 }
