@@ -71,6 +71,12 @@ ExportFilter::create([
 
 Result: `WHERE status = 'active' OR status = 'pending'`
 
+An `or` filter groups with the filter BEFORE it, and consecutive `or` filters
+extend that same group; groups are then ANDed together, so `A, or B, C`
+produces `(A OR B) AND C`. Filters apply in creation order (ordered-uuid ids).
+A leading `or` has nothing to attach to and starts its group like an `and`
+(`export:validate` flags it as a warning).
+
 ## Request Filters
 
 Dynamic filters from API request:

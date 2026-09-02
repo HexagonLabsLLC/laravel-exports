@@ -77,6 +77,33 @@ class ExportLayout extends Model
     }
 
     /**
+     * MySQL's JSON type does not preserve object key order, so the string-keyed
+     * column shorthand is converted to an ordered list before storage. Positions
+     * stay late-bound (assigned at load after persisted columns) so interleaving
+     * semantics are unchanged.
+     */
+    public function setColumnDefinitionsAttribute(?array $definitions): void
+    {
+        if ($definitions !== null) {
+            $entries = [];
+
+            foreach ($definitions as $title => $definition) {
+                $entry = is_string($definition) ? ['value_path' => $definition] : $definition;
+
+                if (is_string($title) && !isset($entry['title'])) {
+                    $entry['title'] = $title;
+                }
+
+                $entries[] = $entry;
+            }
+
+            $definitions = $entries;
+        }
+
+        $this->attributes['column_definitions'] = $definitions === null ? null : json_encode($definitions);
+    }
+
+    /**
      * Check if this layout is a pivot export.
      */
     public function isPivot(): bool
