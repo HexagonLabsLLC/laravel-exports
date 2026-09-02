@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $description
  * @property bool $is_pivot
  * @property array|null $pivot_config
+ * @property array|null $column_definitions
  * @property-read ExportModel|null $exportModel
  * @property-read Collection<int, ExportFilter> $filters
  * @property-read Collection<int, ExportColumn> $columns
@@ -48,6 +49,7 @@ class ExportLayout extends Model
         'description',
         'is_pivot',
         'pivot_config',
+        'column_definitions',
     ];
 
     /**
@@ -60,6 +62,7 @@ class ExportLayout extends Model
         return [
             'is_pivot' => 'boolean',
             'pivot_config' => 'array',
+            'column_definitions' => 'array',
         ];
     }
 
@@ -122,32 +125,63 @@ class ExportLayout extends Model
         $position = (int)$this->columns()->max('position');
 
         foreach ($columns as $title => $definition) {
-            $attributes = is_string($definition) ? ['value_path' => $definition] : $definition;
-
-            if (is_string($title) && !isset($attributes['title'])) {
-                $attributes['title'] = $title;
-            }
-
-            if ($relation = $attributes['relation'] ?? null) {
-                unset($attributes['relation']);
-                $attributes['export_model_relation_id'] ??= ExportModelRelation::where('export_model_id', $this->export_model_id)
-                    ->where('relation', $relation)
-                    ->value('id')
-                    ?? throw new \InvalidArgumentException(
-                        "Relation '{$relation}' is not registered for this layout's export model. Run export:import-models or create the ExportModelRelation first."
-                    );
-            }
-
-            if (isset($attributes['position'])) {
-                $position = max($position, (int)$attributes['position']);
-            } else {
-                $attributes['position'] = ++$position;
-            }
-
-            $this->columns()->create($attributes);
+            $this->columns()->create($this->normalizeColumnDefinition($title, $definition, $position));
         }
 
         return $this;
+    }
+
+    /**
+     * Build unsaved ExportColumn models from the column_definitions JSON field.
+     * Same entry shapes as addColumns(); definitions without a position
+     * slot in after the layout's persisted columns.
+     */
+    public function buildDefinedColumns(): Collection
+    {
+        if (empty($this->column_definitions)) {
+            return new Collection;
+        }
+
+        $position = (int)$this->columns()->max('position');
+        $models = new Collection;
+
+        foreach ($this->column_definitions as $title => $definition) {
+            $attributes = $this->normalizeColumnDefinition($title, $definition, $position);
+            $attributes['export_layout_id'] = $this->id;
+            $models->push(new ExportColumn($attributes));
+        }
+
+        return $models;
+    }
+
+    /**
+     * Normalize one addColumns/column_definitions entry into ExportColumn attributes.
+     */
+    protected function normalizeColumnDefinition(int|string $title, array|string $definition, int &$position): array
+    {
+        $attributes = is_string($definition) ? ['value_path' => $definition] : $definition;
+
+        if (is_string($title) && !isset($attributes['title'])) {
+            $attributes['title'] = $title;
+        }
+
+        if ($relation = $attributes['relation'] ?? null) {
+            unset($attributes['relation']);
+            $attributes['export_model_relation_id'] ??= ExportModelRelation::where('export_model_id', $this->export_model_id)
+                ->where('relation', $relation)
+                ->value('id')
+                ?? throw new \InvalidArgumentException(
+                    "Relation '{$relation}' is not registered for this layout's export model. Run export:import-models or create the ExportModelRelation first."
+                );
+        }
+
+        if (isset($attributes['position'])) {
+            $position = max($position, (int)$attributes['position']);
+        } else {
+            $attributes['position'] = ++$position;
+        }
+
+        return $attributes;
     }
 
     public function sorts(): HasMany

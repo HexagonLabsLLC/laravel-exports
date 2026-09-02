@@ -33,6 +33,8 @@
 	- True when the layout produces a pivot (crosstab) export
 - `pivot_config` (`nullable`|`JSON`)
 	- Pivot export configuration (group_by, pivot_relation, value_column, aggregation, ...)
+- `column_definitions` (`nullable`|`JSON`)
+	- Column definitions carried by the layout row; built into columns at export time and merged with export_columns by position
 - INDEX(`export_model_id`, `name`)
 ### `export_filters`
 - `id` (`UUID`)

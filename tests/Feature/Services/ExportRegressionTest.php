@@ -409,6 +409,49 @@ it('rejects bulk columns referencing unregistered relations', function () {
     ]);
 })->throws(InvalidArgumentException::class, "Relation 'not_a_relation' is not registered");
 
+it('builds columns from the layout column_definitions json field', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->postExportModel->id,
+        'name' => 'Defined Columns',
+        'column_definitions' => [
+            'Title' => 'title',
+            'Tag Total' => ['value_path' => 'tags.value', 'relation' => 'tags', 'aggregator' => 'sum'],
+        ],
+    ]);
+
+    $result = $this->service->executeExport($layout->id)->toArray();
+
+    expect($result)->toHaveCount(3)
+        ->and(array_keys($result[0]))->toBe(['Title', 'Tag Total'])
+        ->and($result[0]['Title'])->toBe('First Post')
+        ->and($result[0]['Tag Total'])->toBe(170)
+        ->and($layout->columns()->count())->toBe(0);
+});
+
+it('merges column_definitions with persisted columns by position', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->userExportModel->id,
+        'name' => 'Mixed Columns',
+        'column_definitions' => [
+            'Source' => ['value_path' => 'source_system', 'default' => 'CRM', 'position' => 1],
+        ],
+    ]);
+
+    ExportColumn::create([
+        'export_layout_id' => $layout->id,
+        'export_model_relation_id' => $this->nameRelation->id,
+        'title' => 'Name',
+        'value_path' => 'name',
+        'position' => 2,
+    ]);
+
+    $result = $this->service->executeExport($layout->id)->toArray();
+
+    expect(array_keys($result[0]))->toBe(['Source', 'Name'])
+        ->and($result[0]['Source'])->toBe('CRM')
+        ->and($result[0]['Name'])->toBe('John Doe');
+});
+
 it('splits xlsx exports into sheets by column value', function () {
     $layout = ExportLayout::create([
         'export_model_id' => $this->postExportModel->id,

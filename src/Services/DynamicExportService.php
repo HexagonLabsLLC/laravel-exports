@@ -116,6 +116,13 @@ class DynamicExportService
             ->with(['modelRelation', 'exportFunction', 'filter.modelRelation'])
             ->orderBy('position')
             ->get();
+
+        // Layouts can also carry column definitions in their column_definitions
+        // JSON field; merge those in by position
+        $definedColumns = $layout->buildDefinedColumns();
+        if ($definedColumns->isNotEmpty()) {
+            $this->columns = $this->columns->concat($definedColumns)->sortBy('position')->values();
+        }
         // Get column filter IDs to exclude from layout filters
         $columnFilterIds = $layout->columns()->whereNotNull('export_filter_id')->pluck('export_filter_id');
         // Only load filters that are NOT attached to columns

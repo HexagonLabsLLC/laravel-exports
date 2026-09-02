@@ -31,6 +31,13 @@ or broken public surface.
 
 ## Features
 
+- **Database-driven columns via `export_layouts.column_definitions`** (json,
+  nullable): a layout row can carry its own column definitions, so layouts
+  inserted purely through the database need no `export_columns` rows and no
+  seeding code. Definitions use the same shapes as `addColumns()` (including
+  `relation` resolution) and are merged with persisted columns by position at
+  export time. Request `defaults`/`overrides` cannot target them (no UUIDs);
+  use the definition's `default`.
 - **`ExportLayout::addColumns()`** bulk-creates columns from one array:
   `'Title' => 'value.path'` shorthand, `'Title' => [attributes]`, or list-style
   attribute arrays. Positions auto-increment past the current max, and a

@@ -78,6 +78,7 @@ class TestCase extends Orchestra
             $table->string('description')->nullable();
             $table->boolean('is_pivot')->default(false);
             $table->json('pivot_config')->nullable();
+            $table->json('column_definitions')->nullable();
             $table->timestamps();
 
             $table->index(['export_model_id', 'name']);

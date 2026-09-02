@@ -364,12 +364,27 @@ Defines an export configuration.
 - `description` (string, nullable)
 - `is_pivot` (boolean)
 - `pivot_config` (json, nullable)
+- `column_definitions` (json, nullable) - column definitions carried by the layout row itself; see below
 
 **Relationships:**
 - `exportModel()` - BelongsTo ExportModel
 - `columns()` - HasMany ExportColumn
 - `filters()` - HasMany ExportFilter
 - `sorts()` - HasMany ExportSort
+
+**Database-driven columns via `column_definitions`:**
+
+A layout row can carry its own columns in the `column_definitions` JSON field, so a layout inserted purely through the database (admin UI, raw SQL, another service) needs no `export_columns` rows and no PHP seeding step. At export time the definitions are built into in-memory columns and merged with any persisted `export_columns` by position (definitions without a position slot in after them). Entries use the same shapes as `addColumns()`, including `relation` resolution:
+
+```json
+{
+    "Title": "title",
+    "Tag Total": {"value_path": "tags.value", "relation": "tags", "aggregator": "sum"},
+    "Source": {"value_path": "source_system", "default": "CRM", "position": 1}
+}
+```
+
+Because these columns have no database ids, request `defaults`/`overrides` (which are keyed by column UUID) cannot target them; use the definition's own `default` instead.
 
 **Methods:**
 
