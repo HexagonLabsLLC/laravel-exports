@@ -44,13 +44,13 @@ Pass parameters as a plain PHP array in `export_function_values`. Parameters are
 
 ```php
 // Single parameter (Format Date: format)
-'export_function_values' => [null, 'Y-m-d']
+'export_function_values' => [null, 'Y-m-d'],
 
 // Multiple parameters (Truncate: length, suffix)
-'export_function_values' => [null, 100, '...']
+'export_function_values' => [null, 100, '...'],
 
 // Multiple parameters (Format Currency: currency, locale)
-'export_function_values' => [null, 'USD', 'en_US']
+'export_function_values' => [null, 'USD', 'en_US'],
 ```
 
 ## Date/Time Functions

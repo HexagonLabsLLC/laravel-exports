@@ -10,22 +10,22 @@ Export orders with customer information and shipping address.
 
 ```php
 // orders table
-[
+$orders = [
     ['id' => 1, 'order_number' => 'ORD-001', 'customer_id' => 1, 'total' => 150.00],
     ['id' => 2, 'order_number' => 'ORD-002', 'customer_id' => 2, 'total' => 275.50],
-]
+];
 
 // customers table
-[
+$customers = [
     ['id' => 1, 'name' => 'John Doe', 'email' => 'john@example.com'],
     ['id' => 2, 'name' => 'Jane Smith', 'email' => 'jane@example.com'],
-]
+];
 
 // addresses table (customer.address)
-[
+$addresses = [
     ['customer_id' => 1, 'city' => 'New York', 'country' => 'USA'],
     ['customer_id' => 2, 'city' => 'London', 'country' => 'UK'],
-]
+];
 ```
 
 ## Models
@@ -180,10 +180,10 @@ ExportColumn::create([
 
 ```php
 // Three levels deep
-'value_path' => 'order.customer.company.name'
+'value_path' => 'order.customer.company.name',
 
 // Four levels deep
-'value_path' => 'workItem.workOrder.customer.contact.email'
+'value_path' => 'workItem.workOrder.customer.contact.email',
 ```
 
 ## Handling Missing Relations

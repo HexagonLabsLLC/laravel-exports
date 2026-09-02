@@ -104,10 +104,10 @@ Calculate difference between dates.
 
 ```php
 // Days since registration (compare to now)
-'export_function_values' => [null, null, 'days']
+'export_function_values' => [null, null, 'days'],
 
 // Days between two dates
-'export_function_values' => [null, '2024-12-31', 'days']
+'export_function_values' => [null, '2024-12-31', 'days'],
 ```
 
 **Units:** `seconds`, `minutes`, `hours`, `days`, `weeks`, `months`, `years`

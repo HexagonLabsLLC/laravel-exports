@@ -60,25 +60,25 @@ CREATE TABLE role_user (
 
 ```php
 // users
-[
+$users = [
     ['id' => 1, 'name' => 'John Doe', 'email' => 'john@example.com'],
     ['id' => 2, 'name' => 'Jane Smith', 'email' => 'jane@example.com'],
-]
+];
 
 // roles
-[
+$roles = [
     ['id' => 1, 'name' => 'Admin'],
     ['id' => 2, 'name' => 'Editor'],
     ['id' => 3, 'name' => 'Viewer'],
-]
+];
 
 // role_user (pivot)
-[
+$roleUser = [
     ['user_id' => 1, 'role_id' => 1, 'assigned_at' => '2024-01-15', 'expires_at' => '2025-01-15'],
     ['user_id' => 1, 'role_id' => 2, 'assigned_at' => '2024-02-01', 'expires_at' => null],
     ['user_id' => 2, 'role_id' => 2, 'assigned_at' => '2024-03-01', 'expires_at' => '2024-12-31'],
     ['user_id' => 2, 'role_id' => 3, 'assigned_at' => '2024-03-01', 'expires_at' => null],
-]
+];
 ```
 
 ## Setup
@@ -208,17 +208,17 @@ Access pivot data using `.pivot.`:
 
 ```php
 // Role name (regular)
-'value_path' => 'roles.name'
+'value_path' => 'roles.name',
 
 // Pivot assigned_at
-'value_path' => 'roles.pivot.assigned_at'
+'value_path' => 'roles.pivot.assigned_at',
 
 // Pivot expires_at
-'value_path' => 'roles.pivot.expires_at'
+'value_path' => 'roles.pivot.expires_at',
 
 // Pivot timestamps (if withTimestamps())
-'value_path' => 'roles.pivot.created_at'
-'value_path' => 'roles.pivot.updated_at'
+'value_path' => 'roles.pivot.created_at',
+'value_path' => 'roles.pivot.updated_at',
 ```
 
 ## Filtering by Pivot Data

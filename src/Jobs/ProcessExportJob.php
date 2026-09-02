@@ -2,6 +2,8 @@
 
 namespace HexagonLabsLLC\LaravelExports\Jobs;
 
+use HexagonLabsLLC\LaravelExports\Exports\ExportFactory;
+use HexagonLabsLLC\LaravelExports\Exports\Handlers\ExportHandler;
 use HexagonLabsLLC\LaravelExports\Models\ExportLayout;
 use HexagonLabsLLC\LaravelExports\Services\DynamicExportService;
 use Illuminate\Bus\Queueable;
@@ -56,14 +58,15 @@ class ProcessExportJob implements ShouldQueue
         $this->updateStatus('processing', ['progress' => 0, 'started_at' => now()->toIso8601String()]);
 
         try {
-            // The chunked writers below only speak these formats; anything else
-            // would silently produce an empty file
-            if (!in_array($this->format, ['csv', 'json'], true)) {
-                throw new \InvalidArgumentException("Queued exports do not support format: {$this->format}");
-            }
-
             // Load the layout
             $layout = ExportLayout::findOrFail($this->layoutId);
+
+            // csv and json are written row by row below so memory stays flat.
+            // Every other registered format is built by its handler, which
+            // needs the whole result set at once.
+            $handler = in_array($this->format, ['csv', 'json'], true)
+                ? null
+                : ExportFactory::create($this->format, $layout, $this->options);
 
             // Create the export service using DI
             $service = app(DynamicExportService::class);
@@ -83,72 +86,13 @@ class ProcessExportJob implements ShouldQueue
             }
 
             // Generate filename
-            $filename = $this->generateFilename($layout);
-            $tempPath = sys_get_temp_dir().'/'.$this->exportId.'.'.$this->format;
+            $extension = $handler ? $handler->getExtension() : $this->format;
+            $filename = $this->generateFilename($layout, $extension);
+            $tempPath = sys_get_temp_dir().'/'.$this->exportId.'.'.$extension;
 
-            // Open temp file for writing
-            $handle = fopen($tempPath, 'w');
-            if ($handle === false) {
-                throw new \RuntimeException("Failed to create temp file: {$tempPath}");
-            }
-
-            $processedRows = 0;
-            $isFirstChunk = true;
-
-            // Write headers for CSV
-            if ($this->format === 'csv') {
-                // We'll write headers with the first chunk
-            } elseif ($this->format === 'json') {
-                fwrite($handle, '[');
-            }
-
-            // Process in chunks
-            $service->executeExportChunked(
-                $layout,
-                $this->requestData,
-                $this->chunkSize,
-                function ($chunk) use ($handle, &$processedRows, $totalCount, &$isFirstChunk) {
-                    if ($this->format === 'csv') {
-                        $delimiter = $this->options['delimiter'] ?? ',';
-                        $enclosure = $this->options['enclosure'] ?? '"';
-                        $escape = $this->options['escape'] ?? '\\';
-
-                        // Write headers on first chunk
-                        if ($isFirstChunk && $chunk->isNotEmpty()) {
-                            fputcsv($handle, array_keys($chunk->first()), $delimiter, $enclosure, $escape);
-                        }
-
-                        foreach ($chunk as $row) {
-                            fputcsv($handle, $this->sanitizeCsvRow(array_values($row)), $delimiter, $enclosure, $escape);
-                        }
-                    } elseif ($this->format === 'json') {
-                        foreach ($chunk as $index => $row) {
-                            if (!$isFirstChunk || $index > 0) {
-                                fwrite($handle, ',');
-                            }
-                            fwrite($handle, json_encode($row, JSON_PRETTY_PRINT));
-                        }
-                    }
-
-                    $isFirstChunk = false;
-                    $processedRows += $chunk->count();
-
-                    // Update progress
-                    $progress = min(99, (int)(($processedRows / $totalCount) * 100));
-                    $this->updateStatus('processing', [
-                        'progress' => $progress,
-                        'processed_rows' => $processedRows,
-                        'total_rows' => $totalCount,
-                    ]);
-                }
-            );
-
-            // Close JSON array
-            if ($this->format === 'json') {
-                fwrite($handle, ']');
-            }
-
-            fclose($handle);
+            $processedRows = $handler
+                ? $this->writeWithHandler($handler, $service, $layout, $tempPath, $totalCount)
+                : $this->writeChunked($service, $layout, $tempPath, $totalCount);
 
             // Move to final storage location as a stream so large exports don't load into memory
             $finalPath = $this->path.'/'.$filename;
@@ -204,6 +148,117 @@ class ProcessExportJob implements ShouldQueue
     }
 
     /**
+     * Write csv or json to the temp file one chunk at a time.
+     */
+    protected function writeChunked(DynamicExportService $service, ExportLayout $layout, string $tempPath, int $totalCount): int
+    {
+        $handle = fopen($tempPath, 'w');
+
+        if ($handle === false) {
+            throw new \RuntimeException("Failed to create temp file: {$tempPath}");
+        }
+
+        $processedRows = 0;
+        $isFirstChunk = true;
+
+        if ($this->format === 'json') {
+            fwrite($handle, '[');
+        }
+
+        $service->executeExportChunked(
+            $layout,
+            $this->requestData,
+            $this->chunkSize,
+            function ($chunk) use ($handle, &$processedRows, $totalCount, &$isFirstChunk) {
+                if ($this->format === 'csv') {
+                    $delimiter = $this->options['delimiter'] ?? ',';
+                    $enclosure = $this->options['enclosure'] ?? '"';
+                    $escape = $this->options['escape'] ?? '\\';
+
+                    // Write headers on first chunk
+                    if ($isFirstChunk && $chunk->isNotEmpty()) {
+                        fputcsv($handle, array_keys($chunk->first()), $delimiter, $enclosure, $escape);
+                    }
+
+                    foreach ($chunk as $row) {
+                        fputcsv($handle, $this->sanitizeCsvRow(array_values($row)), $delimiter, $enclosure, $escape);
+                    }
+                } else {
+                    foreach ($chunk as $index => $row) {
+                        if (!$isFirstChunk || $index > 0) {
+                            fwrite($handle, ',');
+                        }
+                        fwrite($handle, json_encode($row, JSON_PRETTY_PRINT));
+                    }
+                }
+
+                $isFirstChunk = false;
+                $processedRows += $chunk->count();
+
+                $this->reportProgress($processedRows, $totalCount);
+            }
+        );
+
+        if ($this->format === 'json') {
+            fwrite($handle, ']');
+        }
+
+        fclose($handle);
+
+        return $processedRows;
+    }
+
+    /**
+     * Build the file through an export handler. Chunking still bounds query
+     * memory, but the handler is handed every row at once, so peak memory
+     * grows with the result set. Prefer csv for very large queued exports.
+     */
+    protected function writeWithHandler(ExportHandler $handler, DynamicExportService $service, ExportLayout $layout, string $tempPath, int $totalCount): int
+    {
+        $rows = collect();
+        $processedRows = 0;
+
+        $service->executeExportChunked(
+            $layout,
+            $this->requestData,
+            $this->chunkSize,
+            function ($chunk) use ($rows, &$processedRows, $totalCount) {
+                foreach ($chunk as $row) {
+                    $rows->push($row);
+                }
+
+                $processedRows += $chunk->count();
+
+                $this->reportProgress($processedRows, $totalCount);
+            }
+        );
+
+        $content = $handler->export($rows);
+
+        if (!is_string($content)) {
+            throw new \RuntimeException("Queued exports need a string from the {$this->format} handler's export() method.");
+        }
+
+        if (file_put_contents($tempPath, $content) === false) {
+            throw new \RuntimeException("Failed to create temp file: {$tempPath}");
+        }
+
+        return $processedRows;
+    }
+
+    /**
+     * Report chunk progress, capped below 100 until the file is stored.
+     */
+    protected function reportProgress(int $processedRows, int $totalCount): void
+    {
+        $this->updateStatus('processing', [
+            'progress' => min(99, (int)(($processedRows / $totalCount) * 100)),
+            'processed_rows' => $processedRows,
+            'total_rows' => $totalCount,
+        ]);
+    }
+
+    /**
      * Handle a job failure.
      */
     public function failed(\Throwable $exception): void
@@ -256,12 +311,12 @@ class ProcessExportJob implements ShouldQueue
     /**
      * Generate a filename for the export.
      */
-    protected function generateFilename(ExportLayout $layout): string
+    protected function generateFilename(ExportLayout $layout, string $extension): string
     {
         $baseName = Str::slug($layout->title ?: 'export');
         $timestamp = now()->format('Y-m-d_His');
 
-        return "{$baseName}_{$timestamp}.{$this->format}";
+        return "{$baseName}_{$timestamp}.{$extension}";
     }
 
     /**

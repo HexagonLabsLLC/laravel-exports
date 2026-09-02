@@ -75,12 +75,12 @@ Use `.pivot.` in the value path:
 
 ```php
 // Role name (regular access)
-'value_path' => 'roles.name'
+'value_path' => 'roles.name',
 
 // Pivot data
-'value_path' => 'roles.pivot.assigned_at'
-'value_path' => 'roles.pivot.expires_at'
-'value_path' => 'roles.pivot.created_at'  // If withTimestamps()
+'value_path' => 'roles.pivot.assigned_at',
+'value_path' => 'roles.pivot.expires_at',
+'value_path' => 'roles.pivot.created_at',  // If withTimestamps()
 ```
 
 ## Complete Example
@@ -260,16 +260,20 @@ ExportColumn::create([
 
 ## Project Members Example
 
-```php
-// Project has many Users through pivot with role
+Project has many Users through pivot with role:
 
+```php
 // Project model
 public function members(): BelongsToMany
 {
     return $this->belongsToMany(User::class, 'project_members')
         ->withPivot(['role', 'joined_at', 'is_lead']);
 }
+```
 
+Then configure the export:
+
+```php
 // Relation record for the members collection
 $membersRelation = ExportModelRelation::where('export_model_id', $projectModel->id)
     ->where('relation', 'members')

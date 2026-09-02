@@ -48,28 +48,28 @@ class Contact extends Model
 
 ```php
 // work_items
-[
+$workItems = [
     ['id' => 1, 'title' => 'Install Equipment', 'work_order_id' => 1],
     ['id' => 2, 'title' => 'Maintenance Check', 'work_order_id' => 2],
-]
+];
 
 // work_orders
-[
+$workOrders = [
     ['id' => 1, 'number' => 'WO-001', 'customer_id' => 1],
     ['id' => 2, 'number' => 'WO-002', 'customer_id' => 2],
-]
+];
 
 // customers
-[
+$customers = [
     ['id' => 1, 'name' => 'Acme Corp'],
     ['id' => 2, 'name' => 'Tech Inc'],
-]
+];
 
 // contacts
-[
+$contacts = [
     ['customer_id' => 1, 'org_name' => 'Acme Corporation', 'email' => 'contact@acme.com'],
     ['customer_id' => 2, 'org_name' => 'Tech Industries', 'email' => 'info@tech.com'],
-]
+];
 ```
 
 ## Setup
@@ -234,13 +234,13 @@ Access different branches of relationships:
 
 ```php
 // WorkItem -> workOrder -> customer -> name
-'value_path' => 'workOrder.customer.name'
+'value_path' => 'workOrder.customer.name',
 
 // WorkItem -> workOrder -> technician -> name
-'value_path' => 'workOrder.technician.name'
+'value_path' => 'workOrder.technician.name',
 
 // WorkItem -> workOrder -> location -> address -> city
-'value_path' => 'workOrder.location.address.city'
+'value_path' => 'workOrder.location.address.city',
 ```
 
 ## Handling Null Values
