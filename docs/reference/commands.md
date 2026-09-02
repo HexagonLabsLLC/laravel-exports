@@ -216,6 +216,32 @@ Seeding complete!
 
 ---
 
+## export:validate
+
+Validates every layout's configuration without running any exports and without writing to the database.
+
+```bash
+php artisan export:validate              # all layouts
+php artisan export:validate --layout=posts_report   # one layout, by name or id
+```
+
+Each layout with problems prints a table of severity, source, and message; the summary line counts layouts, errors, and warnings. The command exits non-zero when any error-severity problem exists, so it slots into CI and deploy pipelines. Warnings alone (a skipped static filter, a format without a `{value}` placeholder, a collection sort without `sort_column`) do not fail the run.
+
+```
+Layout: posts_report
++----------+-----------------------+------------------------------------------------------+
+| Severity | Source                | Message                                              |
++----------+-----------------------+------------------------------------------------------+
+| error    | column:Tag Total      | Aggregator 'summ' is not supported                   |
+| error    | filter_definitions[0] | Path 'user.nmae' does not resolve on App\Models\Post |
+| warning  | column:Created        | Format 'Created at' has no {value} placeholder       |
++----------+-----------------------+------------------------------------------------------+
+
+3 layouts checked, 2 errors, 1 warning
+```
+
+Messages come from the `laravel-exports::validation` lang namespace and can be overridden or translated; see the API reference.
+
 ## Common Workflows
 
 ### Initial Setup

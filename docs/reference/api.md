@@ -617,6 +617,45 @@ $layout = ExportLayoutBuilder::for(App\Models\Post::class)
 
 A `filter()` with a `column` option writes that target column onto the catalog relation row (the same field catalog-based whereHas filters read). Array filter values are stored JSON-encoded with `value_type` defaulting to `array`.
 
+`validate(): array` spot-checks the staged layout without saving anything, returning the LayoutValidator's problem list. `save()` validates first and throws `InvalidArgumentException` listing every error at once; warnings never block a save.
+
+---
+
+## LayoutValidator
+
+Read-only spot checker for layout configurations. Works on persisted AND unsaved layouts, never writes, and never lazy-syncs - safe for CI, replicas, and manual sync mode.
+
+```php
+use HexagonLabsLLC\LaravelExports\Services\LayoutValidator;
+
+$problems = app(LayoutValidator::class)->validate($layout);
+
+// Pre-save spot check of a raw form payload (e.g. from a UI) - zero DB writes
+$problems = app(LayoutValidator::class)->validateDraft([
+    'model' => \App\Models\Post::class,
+    'name' => 'draft',
+    'column_definitions' => ['Title' => 'title'],
+]);
+```
+
+Each problem: `['severity' => 'error'|'warning', 'code' => 'unknown_operator', 'source' => 'column:Title', 'params' => [...], 'message' => '...']`. An empty array means valid. Errors are things that break or corrupt an export (unknown operators, aggregators, unresolvable paths, orphaned references, invalid pivot config); warnings are suspicious but functional (skipped static filters, formats without `{value}`, collection sorts without `sort_column`, a leading `or` filter).
+
+**Customizing validation messages:**
+
+Messages render through Laravel's translator (`laravel-exports::validation.<code>`), so consuming projects can replace engineer nomenclature with client-friendly wording, and multilingual projects can add locales:
+
+```bash
+php artisan vendor:publish --provider="HexagonLabsLLC\LaravelExports\LaravelExportsServiceProvider" --tag=lang
+```
+
+Then edit `lang/vendor/laravel-exports/en/validation.php` (or add `es/validation.php` etc.):
+
+```php
+'unknown_aggregator' => 'Pick one of the listed aggregations (you chose :aggregator)',
+```
+
+Frontends can also ignore `message` entirely and map each problem's stable `code` + `params` to their own strings.
+
 ---
 
 ## ModelRelationInspector

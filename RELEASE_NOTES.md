@@ -5,6 +5,16 @@ fluent builders plus row-carried filter/sort definitions.
 
 ## Features
 
+- **Layout validation** via a new read-only `LayoutValidator` (never writes,
+  never lazy-syncs): `validate($layout)` works on persisted and unsaved
+  layouts, `validateDraft($payload)` spot-checks raw UI form data before
+  anything is saved, `ExportLayoutBuilder::validate()` checks staged layouts,
+  and `save()` now reports every error at once instead of dying on the first.
+  `php artisan export:validate` audits all layouts with a CI-friendly
+  non-zero exit on errors. Every problem carries a stable `code` + `params`,
+  and messages render through the `laravel-exports::validation` lang
+  namespace - publish the `lang` tag to override wording with client-friendly
+  text or add locales for multilingual apps.
 - **Lazy catalog sync** (`laravel-exports.schema_sync`, default `lazy`): models
   and relation paths sync into export_models/export_model_relations the first
   time a layout references them - `export:import-models` is now optional.
