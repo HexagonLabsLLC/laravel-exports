@@ -1913,12 +1913,16 @@ class DynamicExportService
     {
         $config = $this->layout->getPivotConfig();
 
+        $globalWeekStart = $config['week_start'] ?? 'monday';
+        $groupBy = $this->normalizePivotGroupEntries($config['group_by'] ?? [], $config['group_by_format'] ?? null, $globalWeekStart);
+        $subGroupBy = $this->normalizePivotGroupEntries($config['sub_group_by'] ?? [], null, $globalWeekStart);
+
         // Build base query with filters
         $query = $this->buildQuery();
         $query = $this->applyFilters($query);
 
         // Build pivot query dynamically from config
-        $pivotQuery = $this->buildPivotQuery($query, $config);
+        $pivotQuery = $this->buildPivotQuery($query, $config, $groupBy, $subGroupBy);
 
         // Execute and get raw aggregated data
         // Use toBase() to avoid Eloquent model casting (e.g., datetime casts interfering with formatted week strings)
@@ -1932,63 +1936,63 @@ class DynamicExportService
         $dynamicColumns = $this->determinePivotColumns($rawData, $config);
 
         // Transform to pivot format
-        return $this->transformPivotResults($rawData, $dynamicColumns, $config, $pivotExpansionData);
+        return $this->transformPivotResults($rawData, $dynamicColumns, $config, $pivotExpansionData, $groupBy, $subGroupBy);
+    }
+
+    /**
+     * Normalize group_by/sub_group_by entries to [path, format, week_start, header].
+     * A string entry inherits the global group_by_format (primary group_by only);
+     * an array entry carries its own format, week_start, and header.
+     */
+    protected function normalizePivotGroupEntries(array $entries, ?string $globalFormat, string $globalWeekStart): array
+    {
+        return array_map(function ($entry) use ($globalFormat, $globalWeekStart) {
+            if (is_string($entry)) {
+                $entry = ['path' => $entry, 'format' => $globalFormat];
+            }
+
+            if (empty($entry['path'])) {
+                throw new \RuntimeException('Pivot group entry is missing its path');
+            }
+
+            return [
+                'path' => $entry['path'],
+                'format' => $entry['format'] ?? null,
+                'week_start' => $entry['week_start'] ?? $globalWeekStart,
+                'header' => $entry['header'] ?? null,
+            ];
+        }, $entries);
     }
 
     /**
      * Build pivot query dynamically from configuration
      */
-    protected function buildPivotQuery(Builder $baseQuery, array $config): Builder
+    protected function buildPivotQuery(Builder $baseQuery, array $config, array $groupByEntries, array $subGroupByEntries): Builder
     {
         $table = $this->exportModel->model::query()->getModel()->getTable();
 
         // Get relations from config and resolve joins dynamically
-        $groupByRelations = $config['group_by'] ?? [];
-        $subGroupByRelations = $config['sub_group_by'] ?? [];
         $pivotRelation = $config['pivot_relation'] ?? null;
         $valueRelation = ($config['value_relation'] ?? null) ?: $table;
         $valueColumn = $config['value_column'] ?? 'id';
         $aggregation = $config['aggregation'] ?? 'count';
-        $groupByFormat = $config['group_by_format'] ?? null;
 
         // Build select and group by clauses dynamically
         $selects = [];
         $groupBys = [];
 
-        // Add group by columns
-        foreach ($groupByRelations as $relation) {
-            $resolved = $this->resolvePivotRelationPath($relation);
-            $baseQuery = $this->applyJoinForRelation($baseQuery, $relation);
+        // Add group and sub-group columns
+        foreach (array_merge($groupByEntries, $subGroupByEntries) as $entry) {
+            $resolved = $this->resolvePivotRelationPath($entry['path']);
+            $baseQuery = $this->applyJoinForRelation($baseQuery, $entry['path']);
 
-            // Apply formatting if specified (e.g., week_year for dates)
-            if ($groupByFormat === 'week_year') {
-                // Check week start day preference (default is ISO Monday-start)
-                $weekStart = $config['week_start'] ?? 'monday';
-
-                if ($weekStart === 'sunday') {
-                    // Use YEARWEEK with mode 0 for Sunday-Saturday weeks
-                    // Format: YEARWEEK returns YYYYWW, convert to YYYY-Www
-                    $selectExpr = "CONCAT(LEFT(YEARWEEK({$resolved['table']}.{$resolved['column']}, 0), 4), '-W', RIGHT(YEARWEEK({$resolved['table']}.{$resolved['column']}, 0), 2))";
-                } else {
-                    // Use DATE_FORMAT with %x (ISO year) and %v (ISO week) for Monday-Sunday weeks
-                    // This correctly handles year boundaries (e.g., Dec 29-31 may be Week 1 of next year)
-                    $selectExpr = "DATE_FORMAT({$resolved['table']}.{$resolved['column']}, '%x-W%v')";
-                }
-
-                $selects[] = DB::raw("{$selectExpr} as {$resolved['alias']}");
-                $groupBys[] = $selectExpr; // Store as string for groupBy/orderBy
-            } else {
-                $selects[] = DB::raw("{$resolved['table']}.{$resolved['column']} as {$resolved['alias']}");
-                $groupBys[] = "{$resolved['table']}.{$resolved['column']}";
+            $expression = "{$resolved['table']}.{$resolved['column']}";
+            if ($entry['format']) {
+                $expression = $this->dateBucketExpression($baseQuery, $expression, $entry['format'], $entry['week_start']);
             }
-        }
 
-        // Add sub-group columns
-        foreach ($subGroupByRelations as $relation) {
-            $resolved = $this->resolvePivotRelationPath($relation);
-            $selects[] = DB::raw("{$resolved['table']}.{$resolved['column']} as {$resolved['alias']}");
-            $groupBys[] = "{$resolved['table']}.{$resolved['column']}";
-            $baseQuery = $this->applyJoinForRelation($baseQuery, $relation);
+            $selects[] = DB::raw("{$expression} as {$resolved['alias']}");
+            $groupBys[] = $expression;
         }
 
         // Add pivot column
@@ -2018,6 +2022,65 @@ class DynamicExportService
             ->select($selects)
             ->groupByRaw(implode(', ', $groupBys))
             ->orderByRaw(implode(', ', $groupBys));
+    }
+
+    /**
+     * Build the driver-specific SQL expression that buckets a date column into
+     * day, week (ISO), month, quarter, or year labels. Sunday-start weeks match
+     * MySQL's YEARWEEK mode 0 and have no exact equivalent elsewhere, so other
+     * drivers throw instead of silently numbering weeks differently.
+     */
+    protected function dateBucketExpression(Builder $query, string $column, string $bucket, string $weekStart): string
+    {
+        $driver = $query->getModel()->getConnection()->getDriverName();
+
+        if ($bucket === 'week_year') {
+            $bucket = 'week';
+        }
+
+        if ($bucket === 'week' && $weekStart === 'sunday') {
+            if ($driver !== 'mysql') {
+                throw new \RuntimeException("Sunday-start weeks are only supported on mysql, got '{$driver}'");
+            }
+
+            return "CONCAT(LEFT(YEARWEEK({$column}, 0), 4), '-W', RIGHT(YEARWEEK({$column}, 0), 2))";
+        }
+
+        // sqlite ISO week shifts to the Thursday of the week (works without the
+        // %G/%V format codes that require sqlite 3.46+)
+        $sqliteIsoThursday = "date({$column}, '-3 days', 'weekday 4')";
+
+        $expressions = [
+            'mysql' => [
+                'day' => "DATE_FORMAT({$column}, '%Y-%m-%d')",
+                'week' => "DATE_FORMAT({$column}, '%x-W%v')",
+                'month' => "DATE_FORMAT({$column}, '%Y-%m')",
+                'quarter' => "CONCAT(YEAR({$column}), '-Q', QUARTER({$column}))",
+                'year' => "DATE_FORMAT({$column}, '%Y')",
+            ],
+            'sqlite' => [
+                'day' => "strftime('%Y-%m-%d', {$column})",
+                'week' => "strftime('%Y', {$sqliteIsoThursday}) || '-W' || printf('%02d', (CAST(strftime('%j', {$sqliteIsoThursday}) AS INTEGER) - 1) / 7 + 1)",
+                'month' => "strftime('%Y-%m', {$column})",
+                'quarter' => "strftime('%Y', {$column}) || '-Q' || ((CAST(strftime('%m', {$column}) AS INTEGER) + 2) / 3)",
+                'year' => "strftime('%Y', {$column})",
+            ],
+            'pgsql' => [
+                'day' => "to_char({$column}, 'YYYY-MM-DD')",
+                'week' => "to_char({$column}, 'IYYY-\"W\"IW')",
+                'month' => "to_char({$column}, 'YYYY-MM')",
+                'quarter' => "to_char({$column}, 'YYYY-\"Q\"Q')",
+                'year' => "to_char({$column}, 'YYYY')",
+            ],
+        ];
+
+        $expression = $expressions[$driver][$bucket] ?? null;
+
+        if ($expression === null) {
+            throw new \RuntimeException("Unsupported date bucket '{$bucket}' for driver '{$driver}'");
+        }
+
+        return $expression;
     }
 
     /**
@@ -2179,11 +2242,10 @@ class DynamicExportService
         Collection $rawData,
         Collection $dynamicColumns,
         array $config,
-        array $pivotExpansionData
+        array $pivotExpansionData,
+        array $groupBy,
+        array $subGroupBy
     ): Collection {
-        $groupBy = $config['group_by'] ?? [];
-        $subGroupBy = $config['sub_group_by'] ?? [];
-
         // Get formatting function if specified
         $formatFunction = null;
         if (!empty($pivotExpansionData['format_function'])) {
@@ -2226,11 +2288,11 @@ class DynamicExportService
     /**
      * Build group key from row and relation paths
      */
-    protected function buildPivotGroupKey(object $row, array $relations): string
+    protected function buildPivotGroupKey(object $row, array $entries): string
     {
         $parts = [];
-        foreach ($relations as $relation) {
-            $alias = str_replace('.', '_', $relation);
+        foreach ($entries as $entry) {
+            $alias = str_replace('.', '_', $entry['path']);
             $parts[] = $row->$alias ?? '';
         }
 
@@ -2241,12 +2303,12 @@ class DynamicExportService
     /**
      * Extract group data from row
      */
-    protected function extractPivotGroupData(object $row, array $relations): array
+    protected function extractPivotGroupData(object $row, array $entries): array
     {
         // Indexed by position so custom sub_group_by_headers still find their values
         $data = [];
-        foreach ($relations as $relation) {
-            $alias = str_replace('.', '_', $relation);
+        foreach ($entries as $entry) {
+            $alias = str_replace('.', '_', $entry['path']);
             $data[] = $row->$alias ?? '';
         }
 
@@ -2272,12 +2334,12 @@ class DynamicExportService
         $customGroupHeaders = $config['group_by_headers'] ?? [];
         $customSubGroupHeaders = $config['sub_group_by_headers'] ?? [];
 
-        $groupHeaders = array_map(function ($r, $i) use ($customGroupHeaders) {
-            return $customGroupHeaders[$i] ?? ucfirst(str_replace('.', ' ', $r));
+        $groupHeaders = array_map(function ($entry, $i) use ($customGroupHeaders) {
+            return $entry['header'] ?? $customGroupHeaders[$i] ?? ucfirst(str_replace('.', ' ', $entry['path']));
         }, $groupBy, array_keys($groupBy));
 
-        $subGroupHeaders = array_map(function ($r, $i) use ($customSubGroupHeaders) {
-            return $customSubGroupHeaders[$i] ?? ucfirst(str_replace('.', ' ', $r));
+        $subGroupHeaders = array_map(function ($entry, $i) use ($customSubGroupHeaders) {
+            return $entry['header'] ?? $customSubGroupHeaders[$i] ?? ucfirst(str_replace('.', ' ', $entry['path']));
         }, $subGroupBy, array_keys($subGroupBy));
 
         // Check if we have actual pivot columns (filter out empty/null keys)

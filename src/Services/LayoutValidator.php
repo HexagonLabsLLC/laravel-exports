@@ -368,11 +368,47 @@ class LayoutValidator
             $this->error('unknown_output_format', 'pivot_config', ['format' => $outputFormat]);
         }
 
+        $buckets = ['day', 'week', 'week_year', 'month', 'quarter', 'year'];
+
+        $globalFormat = $config['group_by_format'] ?? null;
+        if ($globalFormat !== null && !in_array($globalFormat, $buckets, true)) {
+            $this->error('unknown_group_format', 'pivot_config', ['format' => $globalFormat]);
+        }
+
+        $globalWeekStart = $config['week_start'] ?? 'monday';
+        if (!in_array($globalWeekStart, ['monday', 'sunday'], true)) {
+            $this->warning('unknown_week_start', 'pivot_config', ['week_start' => $globalWeekStart]);
+        }
+
+        // Group entries are either a path string or [path, format, week_start, header]
+        $paths = [];
+        foreach (array_merge($config['group_by'], $config['sub_group_by'] ?? []) as $entry) {
+            if (is_string($entry)) {
+                $paths[] = $entry;
+
+                continue;
+            }
+
+            if (empty($entry['path'])) {
+                $this->error('missing_group_path', 'pivot_config');
+            } else {
+                $paths[] = $entry['path'];
+            }
+
+            $format = $entry['format'] ?? null;
+            if ($format !== null && !in_array($format, $buckets, true)) {
+                $this->error('unknown_group_format', 'pivot_config', ['format' => $format]);
+            }
+
+            $weekStart = $entry['week_start'] ?? null;
+            if ($weekStart !== null && !in_array($weekStart, ['monday', 'sunday'], true)) {
+                $this->warning('unknown_week_start', 'pivot_config', ['week_start' => $weekStart]);
+            }
+        }
+
         if (!$this->modelClass) {
             return;
         }
-
-        $paths = array_merge($config['group_by'], $config['sub_group_by'] ?? []);
         if (!empty($config['pivot_relation'])) {
             $paths[] = $config['pivot_relation'];
         }
