@@ -4,6 +4,7 @@ namespace HexagonLabsLLC\LaravelExports;
 
 use HexagonLabsLLC\LaravelExports\Helpers\ModelRelationInspector;
 use HexagonLabsLLC\LaravelExports\Services\DynamicExportService;
+use HexagonLabsLLC\LaravelExports\Services\SchemaSync;
 use Illuminate\Support\ServiceProvider;
 
 class LaravelExportsServiceProvider extends ServiceProvider
@@ -13,10 +14,12 @@ class LaravelExportsServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__.'/../config/laravel-exports.php', 'laravel-exports');
 
         $this->app->singleton(ModelRelationInspector::class);
+        $this->app->singleton(SchemaSync::class);
 
         $this->app->singleton(DynamicExportService::class, function ($app) {
             return new DynamicExportService(
-                $app->make(ModelRelationInspector::class)
+                $app->make(ModelRelationInspector::class),
+                $app->make(SchemaSync::class)
             );
         });
 

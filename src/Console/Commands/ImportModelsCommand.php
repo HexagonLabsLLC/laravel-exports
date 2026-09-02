@@ -5,6 +5,7 @@ namespace HexagonLabsLLC\LaravelExports\Console\Commands;
 use HexagonLabsLLC\LaravelExports\Helpers\ModelRelationInspector;
 use HexagonLabsLLC\LaravelExports\Models\ExportModel;
 use HexagonLabsLLC\LaravelExports\Models\ExportModelRelation;
+use HexagonLabsLLC\LaravelExports\Services\SchemaSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -279,81 +280,17 @@ class ImportModelsCommand extends Command
     {
         $this->log("\n--- Syncing columns for: $modelClass ---");
 
-        $exportModel = ExportModel::where('model', $modelClass)->first();
-
-        if (!$exportModel) {
-            $this->log("No export model found for $modelClass");
-
-            return;
-        }
-
-        $this->log("Found export model with ID: {$exportModel->id}");
-
-        // Get model data (columns and relations)
-        $this->log('Transaction level before getModelData: '.DB::transactionLevel());
-        $modelData = $this->inspector->getModelData($modelClass);
-        $this->log('Transaction level after getModelData: '.DB::transactionLevel());
-
-        if (empty($modelData['columns'])) {
-            $this->line("  -> No columns data found for {$modelClass}");
-            $this->log('No columns data found');
+        try {
+            $exportModel = app(SchemaSync::class)->syncModel($modelClass);
+        } catch (\Exception $e) {
+            $this->log('ERROR syncing columns: '.$e->getMessage());
+            $this->error("Failed to sync {$modelClass}: ".$e->getMessage());
 
             return;
         }
 
-        $columns = $modelData['columns'];
-        $this->log('Columns found: '.json_encode($columns));
-
-        $savedCount = 0;
-        $createdCount = 0;
-
-        // Import columns
-        foreach ($columns as $column) {
-            $this->log("\nProcessing column: $column");
-
-            try {
-                $this->log('Attempting updateOrCreate with:');
-                $this->log("  Search: export_model_id={$exportModel->id}, relation=$column");
-                $this->log('  Data: title='.Str::headline($column).', is_column=true, is_collection=false, related_model_id=null');
-
-                // Only update/create columns, don't touch relations
-                $relation = ExportModelRelation::updateOrCreate(
-                    [
-                        'export_model_id' => $exportModel->id,
-                        'relation' => $column,
-                        'is_column' => true,  // Include this in the search to only match columns
-                    ],
-                    [
-                        'title' => Str::headline($column),
-                        'is_collection' => false,
-                        'related_model_id' => null,
-                    ]
-                );
-
-                $savedCount++;
-                if ($relation->wasRecentlyCreated) {
-                    $createdCount++;
-                }
-
-                $this->log("SUCCESS: Column saved with ID: {$relation->id}");
-                $this->log('  Was recently created: '.($relation->wasRecentlyCreated ? 'YES' : 'NO'));
-
-                // Verify it's actually in the database
-                $verify = ExportModelRelation::find($relation->id);
-                if (!$verify) {
-                    $this->log('ERROR: Column was NOT found in database after save!');
-                } else {
-                    $this->log('  Verified in database: YES');
-                }
-
-            } catch (\Exception $e) {
-                $this->log('ERROR saving column: '.$e->getMessage());
-                $this->error("Failed to save column {$column}: ".$e->getMessage());
-            }
-        }
-
-        $this->line('  -> '.class_basename($modelClass).': Synced '.count($columns).' columns');
-        $this->log('Total columns processed: '.count($columns).", saved: $savedCount, created: $createdCount");
+        $count = $exportModel->relations()->where('is_column', true)->count();
+        $this->line('  -> '.class_basename($modelClass).': Synced '.$count.' columns');
     }
 
     /**
@@ -363,82 +300,16 @@ class ImportModelsCommand extends Command
     {
         $this->log("\n--- Syncing relations for: $modelClass ---");
 
-        $exportModel = ExportModel::where('model', $modelClass)->first();
-
-        if (!$exportModel) {
-            $this->log("ERROR: Export model not found for $modelClass");
-
-            return;
-        }
-
-        $this->log("Found export model with ID: {$exportModel->id}");
-
-        // Get model data (columns and relations)
-        $this->log('Transaction level before getModelData: '.DB::transactionLevel());
-        $modelData = $this->inspector->getModelData($modelClass);
-        $this->log('Transaction level after getModelData: '.DB::transactionLevel());
-        $this->log('Model data keys: '.json_encode(array_keys($modelData)));
-
-        if (empty($modelData['relations'])) {
-            $this->line("  -> No relations data found for {$modelClass}");
-            $this->log('No relations key in model data');
+        try {
+            $exportModel = app(SchemaSync::class)->syncModel($modelClass);
+        } catch (\Exception $e) {
+            $this->log('ERROR syncing relations: '.$e->getMessage());
 
             return;
         }
 
-        $relations = $modelData['relations'];
-        $this->log('Relations found: '.json_encode(array_keys($relations)));
-        $this->log('Relations data: '.json_encode($relations));
-
-        $syncedRelations = 0;
-
-        // Import relations (with immediate linking since all models exist)
-        foreach ($relations as $relationName => $relationInfo) {
-            $this->log("\nProcessing relation: $relationName");
-            $this->log('Relation info: '.json_encode($relationInfo));
-
-            // Find the related export model since all models have been imported in Phase 1
-            $relatedExportModel = ExportModel::where('model', $relationInfo['related_model'])->first();
-            $this->log("Looking for related model: {$relationInfo['related_model']}");
-            $this->log('Related export model found: '.($relatedExportModel ? "YES (ID: {$relatedExportModel->id})" : 'NO'));
-
-            try {
-                $this->log('Attempting updateOrCreate with:');
-                $this->log("  Search: export_model_id={$exportModel->id}, relation=$relationName, is_column=false");
-                $this->log('  Data: title='.Str::headline($relationName).
-                          ', is_collection='.($relationInfo['is_collection'] ? 'true' : 'false').
-                          ', related_model_id='.($relatedExportModel->id ?? 'null'));
-
-                // Only update/create relations, don't touch columns
-                $result = ExportModelRelation::updateOrCreate(
-                    [
-                        'export_model_id' => $exportModel->id,
-                        'relation' => $relationName,
-                        'is_column' => false,  // Include this in the search to only match relations
-                    ],
-                    [
-                        'title' => Str::headline($relationName),
-                        'is_collection' => $relationInfo['is_collection'],
-                        'related_model_id' => $relatedExportModel?->id,
-                        'has_pivot' => $relationInfo['has_pivot'] ?? false,
-                        'pivot_columns' => $relationInfo['pivot_columns'] ?? null,
-                    ]
-                );
-
-                $syncedRelations++;
-                $this->log("SUCCESS: Relation saved with ID: {$result->id}");
-
-                if (!$relatedExportModel) {
-                    $this->line("    WARNING: Relation '{$relationName}' created but related model not found: {$relationInfo['related_model']}");
-                    $this->log('WARNING: Related model not found');
-                }
-            } catch (\Exception $e) {
-                $this->log('EXCEPTION: '.$e->getMessage());
-                $this->log('Stack trace: '.$e->getTraceAsString());
-            }
-        }
-
-        $this->line('  -> '.class_basename($modelClass).': Found '.count($relations).' relations, synced '.$syncedRelations);
+        $count = $exportModel->relations()->where('is_column', false)->count();
+        $this->line('  -> '.class_basename($modelClass).': Found '.$count.' relations, synced '.$count);
     }
 
     /**

@@ -47,10 +47,13 @@ class DynamicExportService
 
     protected ?ModelRelationInspector $inspector = null;
 
-    public function __construct(?ModelRelationInspector $inspector = null)
+    protected ?SchemaSync $schemaSync = null;
+
+    public function __construct(?ModelRelationInspector $inspector = null, ?SchemaSync $schemaSync = null)
     {
         $this->initializeCollections();
         $this->inspector = $inspector ?? app(ModelRelationInspector::class);
+        $this->schemaSync = $schemaSync ?? app(SchemaSync::class);
     }
 
     protected function initializeCollections(): void
