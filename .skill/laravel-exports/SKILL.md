@@ -6,7 +6,9 @@ description: |
   (3) Setting up filters (static, request-based, or relation-based), (4) Applying transformation functions to columns,
   (5) Working with ExportModel, ExportLayout, ExportColumn, ExportFilter, ExportSort, or ExportFunction models,
   (6) Building aggregated reports (sum, count, avg, min, max, first, last),
-  (7) User mentions "laravel-exports", "export layout", "pivot export", or "crosstab report".
+  (7) Queueing background exports or exporting xlsx/multi-sheet workbooks,
+  (8) Validating layouts before saving or in CI,
+  (9) User mentions "laravel-exports", "export layout", "pivot export", or "crosstab report".
 ---
 
 # Laravel Exports
@@ -16,11 +18,15 @@ Database-driven export system with dynamic layouts, filtering, transformations, 
 ## Quick Reference
 
 ```bash
-# Import models from codebase
+# Pre-populate the model catalog (optional: default lazy schema sync
+# registers models and paths on first reference)
 php artisan export:import-models --force
 
 # Seed built-in functions
 php artisan export:seed-functions --force
+
+# Validate every layout (CI-friendly: non-zero exit on errors)
+php artisan export:validate
 
 # Run seeder
 php artisan db:seed --class=MyExportSeeder
@@ -41,6 +47,28 @@ php artisan db:seed --class=MyExportSeeder
 ## Creating Export Seeders
 
 See [references/seeder-patterns.md](references/seeder-patterns.md) for complete patterns.
+
+### Fluent Builder (zero setup, preferred)
+
+```php
+use HexagonLabsLLC\LaravelExports\Builders\ExportLayoutBuilder;
+
+$layout = ExportLayoutBuilder::for(\App\Models\Post::class)
+    ->name('posts_report')->title('Posts Report')
+    ->column('Title', 'title')
+    ->column('Author', 'user.name')
+    ->filter('published', '=', true)
+    ->requestFilter('user.name', 'in', required: true)
+    ->sort('created_at', 'desc')
+    ->save();  // pre-validates, throws every error at once
+```
+
+Lazy schema sync registers the model and its paths on first reference, so no
+import step is needed. `$builder->validate()` spot-checks without saving;
+`LayoutValidator::validateDraft($formPayload)` does the same for raw UI
+payloads with zero DB writes. Layouts can also carry `column_definitions`,
+`filter_definitions`, and `sort_definitions` JSON on the row itself (one
+INSERT is a complete export) - see the seeder patterns reference.
 
 ### Basic Seeder Structure
 
@@ -303,12 +331,36 @@ $data = $service->executeExport($layout, [
     'work_start_at' => ['2025-01-01', '2025-12-31'],
 ]);
 
-// Download as CSV
+// Download or store in any registered format: csv, json, xlsx (optional
+// phpoffice/phpspreadsheet), or a custom ExportFactory::register() handler
 return $service->downloadAs($layout, 'csv', 'export.csv');
+return $service->downloadAs($layout, 'xlsx', 'export.xlsx', $requestData, [
+    'sheet_by' => 'Status',        // one sheet per distinct column value
+    'sheet_title' => 'Report',     // single-sheet workbook title
+]);
+$service->storeAs($layout, 'csv', 'exports/out.csv', $requestData);
 
 // For pivot exports
 $data = $service->executeExport($layout, $requestData); // routes pivot layouts automatically
 ```
+
+### Queued (Background) Exports
+
+Any registered format queues, with handler options passed through:
+
+```php
+use HexagonLabsLLC\LaravelExports\Jobs\ProcessExportJob;
+
+$exportId = $service->queueExport($layout, 'xlsx', $requestData, ['sheet_by' => 'Status']);
+
+$status = ProcessExportJob::getStatus($exportId);  // ['status' => ..., 'progress' => ...]
+if (ProcessExportJob::isSuccessful($exportId)) {
+    $url = ProcessExportJob::getDownloadUrl($exportId);
+}
+```
+
+csv/json stream chunked with flat memory; xlsx and custom handlers buffer the
+full result set in memory (prefer csv for very large queued exports).
 
 ## Common Gotchas
 
@@ -316,7 +368,9 @@ $data = $service->executeExport($layout, $requestData); // routes pivot layouts 
 2. **Eloquent casts interfere with formatted SQL**: Library uses `toBase()->get()` for pivot exports
 3. **Operator column is an enum**: Use `'not_null'` not `'is not null'`
 4. **value_type required**: Even for null operators, use `'string'`
-5. **Run import-models first**: Always run `php artisan export:import-models` before creating seeders
+5. **import-models is optional**: default lazy schema sync registers models and paths on first reference; run `export:import-models` only to pre-populate picklists or when `schema_sync` is `manual`
+6. **Validate before shipping**: `php artisan export:validate` catches broken paths, operators, aggregators, and pivot configs; builder `save()` pre-validates automatically
+7. **Queued handler formats buffer in memory**: csv/json queue with chunked writers; xlsx and custom handlers build the full result set first
 
 ## Resources
 
