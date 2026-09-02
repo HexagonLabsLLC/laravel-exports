@@ -2,6 +2,8 @@
 
 The `export:import-models` command discovers and registers your Eloquent models for exporting.
 
+Running it is now optional under the default `lazy` schema sync mode: models and relation paths sync into the catalog automatically the first time a layout references them. The command remains useful for pre-populating the whole catalog at once (deep nested paths, UI picklists before first use) and is required when `laravel-exports.schema_sync` is set to `manual`. See [Configuration](../configuration.md#schema-sync).
+
 ## Basic Usage
 
 ```bash

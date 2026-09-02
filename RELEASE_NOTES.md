@@ -1,3 +1,44 @@
+# v1.0.0-rc.6 (feat/lazy-catalog-builders)
+
+The export catalog becomes a lazily self-syncing cache, and layouts gain
+fluent builders plus row-carried filter/sort definitions.
+
+## Features
+
+- **Lazy catalog sync** (`laravel-exports.schema_sync`, default `lazy`): models
+  and relation paths sync into export_models/export_model_relations the first
+  time a layout references them - `export:import-models` is now optional.
+  `verify` mode also re-syncs when a model's reflected schema fingerprint
+  (new `export_models.schema_hash`) drifts; `manual` restores the old
+  never-write behavior and throws helpful errors for missing entries.
+- **Model-class layouts**: `export_layouts.model` (nullable FQCN) can replace
+  `export_model_id` (now nullable; exactly one required, `model` wins). A
+  layout inserted with just a class name runs with zero catalog setup.
+- **`filter_definitions` / `sort_definitions`** JSON on export_layouts: with
+  `column_definitions`, one INSERT is a complete runnable export. Paths
+  resolve against the (self-syncing) catalog; dotted attribute paths ride the
+  smart relation filter parsing; request filters match path-derived keys.
+- **`ExportLayoutBuilder`**: fluent, transactional construction of
+  catalog-backed layouts (`for(Post::class)->column(...)->filter(...)
+  ->sort(...)->save()`), with `SchemaSync::describe()` as the UI schema
+  endpoint.
+- **`SchemaSync` service** extracted from ImportModelsCommand: one shared,
+  race-safe write path for the whole catalog (a new unique index on
+  export_model_relations backs the upserts; the migration de-duplicates
+  existing rows first).
+
+## Behavior changes
+
+- Referenced nested paths are no longer ad-hoc INSERTed during exports in all
+  cases: they sync through SchemaSync under `lazy`/`verify` and are left
+  alone (in-memory validation only) under `manual`.
+- The lazy-sync migration alters export_layouts (`export_model_id` nullable)
+  and adds a unique index; on dirty catalogs the de-duplication step removes
+  duplicate relation rows (oldest kept). SQLite rebuilds the table on the
+  nullable change.
+- Apps routing reads to database replicas should set `schema_sync=manual`
+  (runtime writes otherwise occur on catalog misses).
+
 # v1.0.0-rc.5
 
 Correctness, performance, and Laravel 13 readiness release over rc.4, driven by

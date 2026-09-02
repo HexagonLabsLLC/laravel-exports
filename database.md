@@ -2,6 +2,8 @@
 - `id` (`UUID`)
 - `title`
 - `model`
+- `schema_hash` (`nullable`|`varchar`)
+	- Fingerprint of the reflected model schema; used by the `verify` schema_sync mode to detect drift
 - INDEX(`model`)
 ### `export_model_relations`
 - `id` (`UUID`)
@@ -22,6 +24,8 @@
 - `metadata` (`nullable`|`JSON`)
 	- Extra configuration, e.g. `{"sort_column": "name"}` for related-column sorting
 - INDEX(`export_model_id`, `relation`, `related_model_id`)
+- UNIQUE(`export_model_id`, `relation`, `is_column`)
+	- Makes lazy-sync upserts race safe
 ### `export_layouts`
 - `id` (`UUID`)
 - `export_model_id` (`export_models`)
@@ -35,6 +39,12 @@
 	- Pivot export configuration (group_by, pivot_relation, value_column, aggregation, ...)
 - `column_definitions` (`nullable`|`JSON`)
 	- Column definitions carried by the layout row; built into columns at export time and merged with export_columns by position
+- `filter_definitions` (`nullable`|`JSON`)
+	- Filter definitions carried by the layout row ({path, operator, value, ...}); merged with export_filters at export time
+- `sort_definitions` (`nullable`|`JSON`)
+	- Sort definitions carried by the layout row ({path, direction, priority?, sort_column?}); merged with export_sorts
+- `model` (`nullable`|`varchar`)
+	- Eloquent model FQCN; alternative to export_model_id, lazy-syncs the catalog on first reference. Exactly one of the two is required; model wins when both are set
 - INDEX(`export_model_id`, `name`)
 ### `export_filters`
 - `id` (`UUID`)

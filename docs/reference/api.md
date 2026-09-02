@@ -358,13 +358,46 @@ Defines an export configuration.
 
 **Properties:**
 - `id` (uuid)
-- `export_model_id` (uuid)
+- `export_model_id` (uuid, nullable) - either this or `model` must be set
+- `model` (string, nullable) - an Eloquent FQCN; wins over `export_model_id` and lazy-syncs the catalog on first reference
 - `name` (string)
 - `title` (string, nullable)
 - `description` (string, nullable)
 - `is_pivot` (boolean)
 - `pivot_config` (json, nullable)
 - `column_definitions` (json, nullable) - column definitions carried by the layout row itself; see below
+- `filter_definitions` (json, nullable) - filter definitions carried by the layout row; see below
+- `sort_definitions` (json, nullable) - sort definitions carried by the layout row; see below
+
+**Lazy catalog sync:**
+
+The export catalog (`export_models` / `export_model_relations`) syncs itself as models are referenced, controlled by `config('laravel-exports.schema_sync')`:
+- `lazy` (default) - a referenced model or relation path missing from the catalog is reflected and upserted on first use; existing rows are trusted with zero writes
+- `verify` - additionally re-syncs a model when its reflected schema fingerprint (`export_models.schema_hash`) has drifted
+- `manual` - never writes at runtime; missing catalog entries throw with a hint to run `export:import-models`
+
+`app(SchemaSync::class)->describe(App\Models\Post::class)` returns the synced columns and relations for a model - the schema endpoint for UI picklists.
+
+**Filter and sort definitions:**
+
+Like `column_definitions`, a layout row can carry its filters and sorts, so one INSERT is a complete runnable export:
+
+```json
+{
+  "filter_definitions": [
+    {"path": "published", "operator": "=", "value": true},
+    {"path": "user.name", "operator": "=", "value": "John Doe"},
+    {"path": "tags", "operator": "=", "value": "120", "column": "value"},
+    {"path": "status", "operator": "in", "is_request": true, "is_required": true}
+  ],
+  "sort_definitions": [
+    {"path": "user", "sort_column": "name"},
+    {"path": "created_at", "direction": "desc", "priority": 2}
+  ]
+}
+```
+
+Filter entries take `path`, `operator`, `value`, and optionally `value_type`, `logical_operator`, `is_request`, `is_required`, and `column` (the target column for whereHas relation filters). Paths resolve against the catalog with lazy sync: a base column filters directly, a relation name becomes a whereHas, a dotted attribute path (like `user.name`) rides the smart relation filter parsing. Request filters match request keys derived from the path. Sort entries take `path`, `direction`, optional `priority` (definitions without one slot in after persisted sorts), and optional `sort_column` for relation sorts. Defined entries have no UUIDs, so request `defaults`/`overrides` cannot target them, and an `or` group should live within one storage mechanism (definitions concat after persisted rows).
 
 **Relationships:**
 - `exportModel()` - BelongsTo ExportModel
@@ -560,6 +593,29 @@ $xlsx = $handler->export(collect([
 ```
 
 Sheet titles are sanitized to Excel's rules automatically: the characters `[ ] : * ? / \` are replaced with spaces, titles are capped at 31 characters, blanks become `Sheet`, and duplicates get a ` (2)` style suffix.
+
+---
+
+## ExportLayoutBuilder
+
+Fluent construction of catalog-backed layouts. `for()` accepts a model FQCN (lazy-syncing its catalog rows) or an ExportModel; `column()` takes the `addColumns()` definition shapes; paths resolve inside `save()`'s transaction, so an invalid path rolls the whole layout back.
+
+```php
+use HexagonLabsLLC\LaravelExports\Builders\ExportLayoutBuilder;
+
+$layout = ExportLayoutBuilder::for(App\Models\Post::class)
+    ->name('posts_report')
+    ->title('Posts Report')
+    ->column('Title', 'title')
+    ->column('Author', 'user.name')
+    ->column('Tag Total', ['relation' => 'tags', 'value_path' => 'tags.value', 'aggregator' => 'sum', 'default' => '0'])
+    ->filter('published', '=', true)
+    ->requestFilter('user.name', 'in', required: true)
+    ->sort('created_at', 'desc')
+    ->save();
+```
+
+A `filter()` with a `column` option writes that target column onto the catalog relation row (the same field catalog-based whereHas filters read). Array filter values are stored JSON-encoded with `value_type` defaulting to `array`.
 
 ---
 

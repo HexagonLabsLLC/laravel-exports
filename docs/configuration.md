@@ -234,7 +234,21 @@ return [
     */
 
     'fallback_attributes' => ['name', 'title', 'value', 'label'],
+
+    'schema_sync' => env('EXPORT_SCHEMA_SYNC', 'lazy'),
 ];
+```
+
+## Schema Sync
+
+Controls how the export catalog stays in sync with your Eloquent models when a model is referenced at runtime:
+
+- `lazy` (default) - a referenced model or relation path missing from the catalog is reflected and upserted on first use; existing rows are trusted with zero writes
+- `verify` - additionally re-syncs a model when its reflected schema fingerprint has drifted (one reflection per referenced model per request)
+- `manual` - never writes at runtime; missing catalog entries throw with a hint to run `export:import-models`. Use this on apps that route reads to database replicas.
+
+```php
+'schema_sync' => env('EXPORT_SCHEMA_SYNC', 'lazy'),
 ```
 
 ## Environment Variables Summary
