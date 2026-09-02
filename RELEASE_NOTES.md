@@ -29,6 +29,16 @@ fluent builders plus row-carried filter/sort definitions.
 
 ## Behavior changes
 
+- **`or` filters now group with the preceding filter**: `A, or B, C` builds
+  `(A OR B) AND C` instead of the flat `A OR B AND C` SQL precedence, so an
+  or-pair can no longer disjoin an unrelated scoping filter. Put a scoping
+  filter after the or-group to keep it ANDed.
+- **Filter application order is now deterministic** (creation order via
+  ordered-uuid `orderBy('id')`); previously it followed database index order,
+  which could silently move an `or` filter's placement.
+- **Column filters coerce comma-separated request strings** into arrays for
+  `in`/`not_in`/`between`, matching layout filters; `'120,30'` and
+  `['120','30']` now behave identically.
 - Referenced nested paths are no longer ad-hoc INSERTed during exports in all
   cases: they sync through SchemaSync under `lazy`/`verify` and are left
   alone (in-memory validation only) under `manual`.
