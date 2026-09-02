@@ -424,7 +424,7 @@ Because these columns have no database ids, request `defaults`/`overrides` (whic
 
 **Pivot config (`is_pivot` + `pivot_config`):**
 
-A pivot layout aggregates rows into a crosstab instead of exporting columns. `group_by` and `sub_group_by` entries are either a path string or an array with a per-entry date bucket:
+A pivot layout aggregates rows into a crosstab instead of exporting columns; see the [Pivot Reports guide](../guides/pivot-reports.md) for worked examples including grouped output. `group_by` and `sub_group_by` entries are either a path string or an array with a per-entry date bucket:
 
 ```json
 {
