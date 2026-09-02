@@ -48,7 +48,8 @@ public function users(): BelongsToMany
 
 ### Import Models
 
-Run import to detect pivot columns:
+Pivot columns are detected whenever the model is synced, which under the default lazy
+mode happens on first reference. To populate them up front, run the import:
 
 ```bash
 php artisan export:import-models --force
@@ -220,7 +221,7 @@ $notExpiredFilter = ExportFilter::create([
     'export_model_relation_id' => $expiresAtRelation->id,
     'operator' => '>',
     'value' => now()->toDateString(),
-    'value_type' => 'date',
+    'value_type' => 'string',
 ]);
 
 // The column still extracts the FIRST role from the full collection
@@ -324,7 +325,7 @@ dump($rolesRelation->pivot_columns);     // ['assigned_at', 'expires_at']
 ### Pivot Data Not Available
 
 1. **Check withPivot()**: Ensure the relationship includes `withPivot()`
-2. **Re-import models**: Run `php artisan export:import-models --force`
+2. **Re-sync the model**: `php artisan export:import-models --force`, or set `schema_sync` to `verify` so a changed model re-syncs itself
 3. **Verify column names**: Check `pivot_columns` matches your pivot table
 
 ### Empty Values

@@ -200,4 +200,4 @@ public function export(Request $request)
 - Static filters are always applied
 - Request-based filters apply only when values are provided
 - Required filters cause export to fail if missing
-- Use `logical_operator` to combine filters with AND/OR
+- Use `logical_operator` to combine filters: an `or` filter groups with the filter before it, and the groups are ANDed (`A, or B, C` => `(A OR B) AND C`)

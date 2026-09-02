@@ -58,7 +58,7 @@ ExportFilter::create([
     'operator' => 'between',
     'is_request' => true,
     'is_required' => true,      // Must provide dates
-    'value_type' => 'date',
+    'value_type' => 'array',
     'logical_operator' => 'AND',
 ]);
 
@@ -80,7 +80,7 @@ ExportFilter::create([
     'operator' => '>=',
     'is_request' => true,
     'is_required' => false,
-    'value_type' => 'number',
+    'value_type' => 'integer',
     'logical_operator' => 'AND',
 ]);
 ```
@@ -190,7 +190,7 @@ POST /api/exports/orders
 
 ## Parameter Name Matching
 
-The system matches parameter names against these variants (matching is case-sensitive): exact name, lowercased name, snake_case name, dots replaced by underscores, and the filter's UUID:
+The system matches parameter names against these variants (matching is case-sensitive): exact name, lowercased name, snake_case name, the name with dots replaced by underscores, the snake_case name with dots replaced by underscores, the filter's UUID, and that UUID with dashes replaced by underscores:
 
 ```php
 // Filter for 'customer.name' matches any of:

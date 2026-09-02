@@ -44,6 +44,7 @@ Stores registered Eloquent models that can be exported.
 | `id` | UUID | Primary key |
 | `title` | VARCHAR | Display name (e.g., "User", "Order") |
 | `model` | VARCHAR | Full class name (e.g., "App\Models\User") |
+| `schema_hash` | VARCHAR (nullable) | Fingerprint of the reflected model schema; the `verify` schema sync mode re-syncs when it drifts |
 | `created_at` | TIMESTAMP | Record creation time |
 | `updated_at` | TIMESTAMP | Last update time |
 
@@ -81,6 +82,7 @@ Stores columns and relationships for each model.
 
 **Indexes:**
 - Composite: `export_model_id`, `relation`, `related_model_id`
+- Unique: `export_model_id`, `relation`, `is_column` (makes lazy-sync upserts race safe)
 
 **Example:**
 
@@ -134,12 +136,16 @@ Stores named export configurations.
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | UUID | Primary key |
-| `export_model_id` | UUID | Foreign key to export_models (entry point) |
+| `export_model_id` | UUID (nullable) | Foreign key to export_models (entry point) |
+| `model` | VARCHAR (nullable) | Eloquent FQCN; alternative to `export_model_id`, lazy-syncs the catalog on first reference and wins when both are set |
 | `name` | VARCHAR | Layout name (identifier) |
 | `title` | VARCHAR (nullable) | Display title |
 | `description` | VARCHAR (nullable) | Layout description |
 | `is_pivot` | BOOLEAN | True if the layout produces a pivot (crosstab) export |
 | `pivot_config` | JSON (nullable) | Pivot export configuration |
+| `column_definitions` | JSON (nullable) | Columns carried by the layout row; merged with `export_columns` by position at export time |
+| `filter_definitions` | JSON (nullable) | Filters carried by the layout row (`{path, operator, value, ...}`); applied after the `export_filters` rows |
+| `sort_definitions` | JSON (nullable) | Sorts carried by the layout row (`{path, direction?, priority?, sort_column?}`) |
 | `created_at` | TIMESTAMP | Record creation time |
 | `updated_at` | TIMESTAMP | Record update time |
 
@@ -173,11 +179,12 @@ Defines output columns for a layout.
 | `title` | VARCHAR (nullable) | Column header |
 | `value_path` | VARCHAR | Dot notation path to value |
 | `default` | VARCHAR (nullable) | Default value when null/empty |
+| `format` | VARCHAR (nullable) | `{value}` output template; wraps each non-empty cell, or templates the generated titles of an expanded column |
 | `aggregator` | ENUM (nullable) | sum, count, avg, min, max, first, last |
 | `position` | INTEGER | Column display order |
-| `is_expanded` | BOOLEAN | Expand collections to multiple columns |
-| `expansion_data` | JSON (nullable) | Expansion configuration |
-| `omit_on_empty` | BOOLEAN | Output an empty string when the value is empty (keeps CSV columns aligned) |
+| `is_expanded` | BOOLEAN | Expand a collection relation into one generated column per distinct related value |
+| `expansion_data` | JSON (nullable) | Expansion configuration: `header_path` (default `name`) |
+| `omit_on_empty` | BOOLEAN | Marker only; empty values already render as the column `default` (an empty string when unset), so rows stay rectangular either way |
 | `created_at` | TIMESTAMP | Record creation time |
 | `updated_at` | TIMESTAMP | Record update time |
 
@@ -216,9 +223,9 @@ Defines filtering criteria for layouts and columns.
 | `export_model_id` | UUID (nullable) | Model being filtered |
 | `export_model_relation_id` | UUID (nullable) | Relation/column being filtered |
 | `operator` | ENUM | Filter operator (see below) |
-| `value` | JSON (nullable) | Static filter value |
-| `value_type` | ENUM | string, number, boolean, array, date |
-| `logical_operator` | ENUM | AND, OR |
+| `value` | TEXT (nullable) | Static filter value; JSON-decoded when `value_type` is `array` or the operator needs a list |
+| `value_type` | ENUM | array, string, integer, boolean, float |
+| `logical_operator` | ENUM | `and`, `or` (stored lowercase; compared case-insensitively). An `or` groups with the preceding filter |
 | `is_request` | BOOLEAN | Get value from request |
 | `is_required` | BOOLEAN | Required if from request |
 | `created_at` | TIMESTAMP | Record creation time |
@@ -263,7 +270,7 @@ ExportFilter::create([
     'operator' => 'between',
     'is_request' => true,
     'is_required' => true,
-    'value_type' => 'date',
+    'value_type' => 'array',
     'logical_operator' => 'AND',
 ]);
 ```
@@ -382,7 +389,7 @@ $sort->layout();                // BelongsTo ExportLayout
 $sort->modelRelation();         // BelongsTo ExportModelRelation
 
 // ExportModelRelation
-$relation->exportModel();       // BelongsTo ExportModel
+$relation->model();             // BelongsTo ExportModel (the owning model)
 $relation->relatedModel();      // BelongsTo ExportModel (nullable)
 ```
 

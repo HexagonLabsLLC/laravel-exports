@@ -28,7 +28,7 @@
 	- Makes lazy-sync upserts race safe
 ### `export_layouts`
 - `id` (`UUID`)
-- `export_model_id` (`export_models`)
+- `export_model_id` (`nullable`|`export_models`)
 	- The entry point we'll use for reference
 - `name` (`varchar`)
 - `title` (`nullable`|`varchar`)
@@ -55,8 +55,8 @@
 - `operator` (`enum['=','!=','>','<','>=','<=','in','not_in','between','like', 'null', 'not_null', 'json_contains', 'relation']`)
 - `value` (`nullable`|`text`|`JSON`)
 	- When null, it'll be assumed that this will be required by request
-- `value_type`
-	- This will be assumed by the relation
+- `value_type` (`enum['array','string','integer','boolean','float']`, default `string`)
+	- Only `array` changes runtime behavior (the stored value is JSON-decoded); the rest are descriptive
 - `is_request` (`boolean`)
 - `is_required` (`boolean`)
 - INDEX(`export_layout_id`, `export_model_id`, `export_model_relation_id`)
@@ -102,5 +102,5 @@
 - `expansion_data` (`nullable`|`JSON`)
 	- Expansion config: `header_path` (data_get path naming each generated column, default `name`). Pivot layouts use `format_function` here instead.
 - `omit_on_empty` (`boolean`)
-	- If the column is empty, output an empty string (keeps CSV columns aligned)
+	- Marker only; empty cells already fall back to the column `default` (an empty string when unset), so rows stay rectangular either way
 - INDEX(`export_layout_id`, `export_function_id`, `export_model_relation_id`)

@@ -96,7 +96,7 @@ ExportFilter::create([
     'export_model_relation_id' => $ageRelation->id,
     'operator' => '>=',
     'value' => 18,
-    'value_type' => 'number',
+    'value_type' => 'integer',
 ]);
 ```
 
@@ -205,7 +205,7 @@ ExportFilter::create([
     'export_model_relation_id' => $dateRelation->id,
     'operator' => 'between',
     'value' => null,              // No static value
-    'value_type' => 'date',
+    'value_type' => 'array',
     'is_request' => true,         // From request
     'is_required' => true,        // Must be provided
 ]);
@@ -241,17 +241,21 @@ ExportFilter::create([
 
 ## Logical Operators
 
-Combine filters with AND/OR logic:
+Filters apply in creation order. An `or` filter groups with the filter **before** it,
+and a run of consecutive `or` filters extends the same group; the groups are then ANDed
+together. So `A, or B, C` becomes `(A OR B) AND C` - an or-pair can never disjoin an
+unrelated scoping filter. An `or` on the very first filter has nothing to attach to and
+simply starts a group (`export:validate` reports it as a warning).
 
 ```php
-// Filter 1: status = 'active' AND
+// Filter 1: status = 'active'
 ExportFilter::create([
     'operator' => '=',
     'value' => 'active',
     'logical_operator' => 'AND',
 ]);
 
-// Filter 2: OR status = 'pending'
+// Filter 2: OR status = 'pending' - groups with filter 1
 ExportFilter::create([
     'operator' => '=',
     'value' => 'pending',
@@ -261,7 +265,7 @@ ExportFilter::create([
 
 **SQL Result:**
 ```sql
-SELECT * FROM users WHERE status = 'active' OR status = 'pending'
+SELECT * FROM users WHERE (status = 'active' or status = 'pending')
 ```
 
 ## Smart Relation Filter Parsing
@@ -375,9 +379,12 @@ ExportColumn::create([
 
 Filters are applied in this order:
 
-1. **Layout filters** (main query WHERE)
+1. **Layout filters** (main query WHERE), in creation order - `export_filters` rows ordered by id, then any entries from the layout's `filter_definitions` JSON
 2. **Column filters with regular operators** (main query WHERE)
 3. **Column filters with relation operator** (eager load constraints)
+
+Because or-groups form against the preceding filter, keep the members of one group in a
+single storage mechanism: all persisted rows, or all definitions.
 
 ```php
 // Given these filters:
@@ -432,7 +439,7 @@ $dateFilter = ExportFilter::create([
     'operator' => 'between',
     'is_request' => true,
     'is_required' => true,
-    'value_type' => 'date',
+    'value_type' => 'array',
 ]);
 
 // Usage

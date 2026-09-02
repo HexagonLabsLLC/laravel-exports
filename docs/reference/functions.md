@@ -186,7 +186,10 @@ Limit string length with suffix.
 
 | Input | Length | Output |
 |-------|--------|--------|
-| This is a very long text | 15 | This is a ve... |
+| This is a very long text | 15 | This is a very... |
+
+`Str::limit()` keeps `length` characters and then appends the suffix, so the result can
+be longer than `length`.
 
 ---
 
@@ -244,7 +247,9 @@ Extract text using regex pattern.
 | Input | Pattern | Output |
 |-------|---------|--------|
 | Order #12345 | `/[0-9]+/` | 12345 |
-| user@example.com | `/@(.+)$/` | example.com |
+| user@example.com | `/@(.+)$/` | @example.com |
+
+The whole match is returned; capture groups are ignored.
 
 ---
 
@@ -286,7 +291,7 @@ Format as currency.
 | Input | Currency | Locale | Output |
 |-------|----------|--------|--------|
 | 1234.50 | USD | en_US | $1,234.50 |
-| 1234.50 | EUR | de_DE | 1.234,50 EUR |
+| 1234.50 | EUR | de_DE | 1.234,50 with a euro sign suffix |
 | 1234.50 | GBP | en_GB | 1,234.50 with a pound sign prefix |
 
 ---
@@ -390,8 +395,9 @@ Join array elements with separator.
 
 | Input | Separator | Output |
 |-------|-----------|--------|
-| ['a', 'b', 'c'] | , | a, b, c |
-| ['a', 'b', 'c'] | - | a-b-c |
+| ['a', 'b', 'c'] | `', '` | a, b, c |
+| ['a', 'b', 'c'] | `','` | a,b,c |
+| ['a', 'b', 'c'] | `'-'` | a-b-c |
 
 ---
 
@@ -500,6 +506,7 @@ Mask sensitive data.
 |------|----------|------------|----------------|
 | Format Date | Date | format | January 15, 2024 |
 | Format Date Human | Date | - | 2 hours ago |
+| Format Timestamp | Date | format, timezone | 2024-01-15 14:30:00 |
 | Date Difference | Date | date2, unit | 30 |
 | Uppercase | String | - | HELLO |
 | Lowercase | String | - | hello |
@@ -519,4 +526,4 @@ Mask sensitive data.
 | Default Value | Utility | default | N/A |
 | Concatenate | Utility | value2, separator | a - b |
 | Hash | Utility | algorithm | abc123... |
-| Mask | Utility | visible, char | 1234**** |
+| Mask | Utility | visible, char | 1234****** |

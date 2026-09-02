@@ -19,6 +19,8 @@
 
 ## Low Priority (Future enhancements)
 
+- [ ] Expand pivot grouping beyond week_year: `group_by_format` supports only week_year today and applies to every group_by entry uniformly. Add more date buckets (day, month, quarter, year), make the format configurable per group_by entry instead of globally, and support grouping that references related database data (e.g. orders grouped per customer with the bucket definition coming from a relation path or lookup table, not just a date expression).
+
 - [x] Consider adding more export formats (Excel shipped as xlsx; PDF intentionally out of scope - implementors render from executeExport()'s array output or register a custom handler)
 - [x] Add export scheduling/job support
 - [x] Create a simple UI or API endpoints for managing exports (handled by the separate laravel-exports-studio project, consuming SchemaSync::describe, ExportLayoutBuilder, and LayoutValidator)

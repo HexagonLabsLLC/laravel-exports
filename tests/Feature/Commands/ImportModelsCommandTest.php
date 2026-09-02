@@ -48,6 +48,20 @@ it('discovers nested relation paths with deep discovery', function () {
     expect(ExportModelRelation::count())->toBe($count);
 });
 
+it('imports only models matching the filter pattern', function () {
+    Artisan::call('export:import-models', [
+        '--path' => $this->testModelsPath,
+        '--namespace' => $this->testModelsNamespace,
+        '--filter' => '*User*',
+    ]);
+
+    // Related models may exist as lazily created stubs; only fully imported
+    // models carry a schema hash
+    expect(ExportModel::where('model', User::class)->whereNotNull('schema_hash')->exists())->toBeTrue()
+        ->and(ExportModel::where('model', Post::class)->whereNotNull('schema_hash')->exists())->toBeFalse()
+        ->and(ExportModel::where('model', Comment::class)->whereNotNull('schema_hash')->exists())->toBeFalse();
+});
+
 it('can import models from default directory', function () {
     Artisan::call('export:import-models', [
         '--path' => $this->testModelsPath,

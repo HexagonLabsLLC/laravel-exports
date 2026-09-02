@@ -83,7 +83,9 @@ CREATE TABLE role_user (
 
 ## Setup
 
-### 1. Import Models
+### 1. Import Models (Optional)
+
+Lazy sync detects pivot columns on first reference; run the import to pre-populate them.
 
 ```bash
 php artisan export:import-models --force

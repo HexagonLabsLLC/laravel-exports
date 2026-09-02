@@ -97,6 +97,10 @@ class ImportModelsCommand extends Command
 
         $models = $this->inspector->getModels();
 
+        if ($filter && $filter !== '*') {
+            $models = array_filter($models, fn ($modelClass) => fnmatch($filter, class_basename($modelClass)));
+        }
+
         if (empty($models)) {
             $this->warn('No models found matching criteria.');
 

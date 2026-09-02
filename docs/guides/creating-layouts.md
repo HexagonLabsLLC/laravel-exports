@@ -22,6 +22,24 @@ $layout = ExportLayout::create([
 ]);
 ```
 
+A layout can also name the model class directly instead of pointing at a catalog row,
+and can carry its columns, filters, and sorts as JSON on the layout row itself
+(`column_definitions`, `filter_definitions`, `sort_definitions`) - see the
+[API Reference](../reference/api.md#exportlayout). `ExportLayoutBuilder` composes the
+same thing fluently:
+
+```php
+use HexagonLabsLLC\LaravelExports\Builders\ExportLayoutBuilder;
+
+$layout = ExportLayoutBuilder::for(\App\Models\User::class)
+    ->name('active_users_report')
+    ->title('Active Users Report')
+    ->column('Email', 'email')
+    ->filter('status', '=', 'active')
+    ->sort('created_at', 'desc')
+    ->save();
+```
+
 ## Defining Columns
 
 Columns define what data appears in your export.
@@ -47,12 +65,15 @@ ExportColumn::create([
 | `value_path` | string | Dot notation path to value |
 | `position` | integer | Display order (1 = first) |
 | `default` | string | Value when data is null/empty |
-| `omit_on_empty` | boolean | Output an empty string when the value is empty (keeps CSV columns aligned) |
+| `format` | string | `{value}` output template applied to non-empty cells, after aggregation, functions, and defaults (`Site {value}`) |
+| `omit_on_empty` | boolean | Marker only; empty cells already fall back to `default` (an empty string when unset) |
 | `export_model_relation_id` | uuid | Link to relation (optional) |
 | `export_function_id` | uuid | Transformation function |
 | `export_function_values` | json | Positional function parameters (`null` in the value slot) |
 | `export_filter_id` | uuid | Column-specific filter |
 | `aggregator` | enum | Aggregation for collections |
+| `is_expanded` | boolean | Fan a collection-relation column out into one generated column per distinct related value |
+| `expansion_data` | json | Expansion config: `header_path` names each generated column (default `name`) |
 
 ## Value Paths
 
@@ -139,14 +160,16 @@ $service->executeExport($layout, $requestData);
 
 ## Empty Column Values
 
-Output an empty string when the value is empty (the key stays in the row, keeping columns aligned):
+Every column key stays in the row, so columns stay aligned: an empty value falls back to
+the column's `default`, which is an empty string when none is set. `omit_on_empty`
+records the intent but does not change the output today.
 
 ```php
 ExportColumn::create([
     'export_layout_id' => $layout->id,
     'title' => 'Middle Name',
     'value_path' => 'middle_name',
-    'omit_on_empty' => true,      // Empty string if empty
+    'default' => '',              // Explicit empty string
     'position' => 1,
 ]);
 ```

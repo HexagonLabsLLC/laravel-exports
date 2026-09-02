@@ -50,7 +50,7 @@ class ExportController extends Controller
     public function streamExport(Request $request, string $layoutId)
     {
         $validated = $request->validate([
-            'format' => 'in:csv,json',
+            'format' => 'in:csv,json,xlsx',
             'start_date' => 'required|date',
             'end_date' => 'required|date',
         ]);
@@ -115,6 +115,7 @@ return $service->streamAs(
         'escape' => '\\',        // Escape character
         'include_headers' => true, // Include header row
         'bom' => false,          // Prepend UTF-8 BOM for Excel
+        'escape_formulas' => true, // Prefix =, +, -, @, tab, CR cells with ' (default: true)
     ],
     500  // Chunk size
 );

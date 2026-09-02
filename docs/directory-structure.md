@@ -20,7 +20,14 @@ laravel-exports/
 |       |-- 2025_06_10_000001_rename_export_relation_id_to_export_model_relation_id.php
 |       |-- 2026_02_04_000001_add_pivot_columns_to_export_model_relations.php
 |       |-- 2026_02_05_000001_add_pivot_support_to_export_layouts.php
-|       `-- 2026_08_31_000001_add_missing_columns_to_export_tables.php
+|       |-- 2026_08_31_000001_add_missing_columns_to_export_tables.php
+|       |-- 2026_09_01_000001_add_column_definitions_to_export_layouts.php
+|       |-- 2026_09_01_000002_add_format_to_export_columns.php
+|       `-- 2026_09_01_000003_add_lazy_catalog_support.php
+|
+|-- lang/
+|   `-- en/
+|       `-- validation.php           # Layout validation messages (publishable)
 |
 |-- docs/
 |   |-- concepts/                  # Architecture and lifecycle concepts
@@ -34,10 +41,14 @@ laravel-exports/
 |   `-- troubleshooting.md         # Common issues and solutions
 |
 |-- src/
+|   |-- Builders/
+|   |   `-- ExportLayoutBuilder.php  # Fluent layout construction
+|   |
 |   |-- Console/
 |   |   `-- Commands/
 |   |       |-- ImportModelsCommand.php           # Model discovery command
-|   |       `-- SeedTransformationFunctionsCommand.php  # Function seeding command
+|   |       |-- SeedTransformationFunctionsCommand.php  # Function seeding command
+|   |       `-- ValidateLayoutsCommand.php        # export:validate
 |   |
 |   |-- Enums/
 |   |   `-- OperatorType.php       # Filter operator enum
@@ -47,7 +58,8 @@ laravel-exports/
 |   |   `-- Handlers/
 |   |       |-- CsvExportHandler.php    # CSV format handler
 |   |       |-- ExportHandler.php       # Abstract base handler
-|   |       `-- JsonExportHandler.php   # JSON format handler
+|   |       |-- JsonExportHandler.php   # JSON format handler
+|   |       `-- XlsxExportHandler.php   # XLSX handler (optional phpspreadsheet)
 |   |
 |   |-- Facades/
 |   |   `-- LaravelExports.php     # Laravel facade
@@ -69,6 +81,8 @@ laravel-exports/
 |   |
 |   |-- Services/
 |   |   |-- DynamicExportService.php    # Main export engine
+|   |   |-- LayoutValidator.php         # Read-only layout spot checker
+|   |   |-- SchemaSync.php              # Lazy catalog sync
 |   |   `-- TransformationFunctions.php # Built-in functions
 |   |
 |   `-- LaravelExportsServiceProvider.php  # Service provider
@@ -78,15 +92,21 @@ laravel-exports/
 |   |   |-- Commands/
 |   |   |   |-- ImportModelsCommandTest.php
 |   |   |   `-- SeedTransformationFunctionsCommandTest.php
+|   |   |-- Jobs/
+|   |   |   `-- ProcessExportJobTest.php
 |   |   `-- Services/
 |   |       |-- DynamicExportServiceTest.php
-|   |       `-- ExportRegressionTest.php
+|   |       |-- ExportRegressionTest.php
+|   |       |-- LayoutValidatorTest.php
+|   |       |-- SchemaSyncTest.php
+|   |       `-- StreamingTest.php
 |   |
 |   |-- Unit/
 |   |   |-- Exports/
 |   |   |   `-- Handlers/
 |   |   |       |-- CsvExportHandlerTest.php
-|   |   |       `-- JsonExportHandlerTest.php
+|   |   |       |-- JsonExportHandlerTest.php
+|   |   |       `-- XlsxExportHandlerTest.php
 |   |   |-- Helpers/
 |   |   |   `-- ModelRelationInspectorTest.php
 |   |   |-- Models/
@@ -111,7 +131,9 @@ laravel-exports/
 |-- .gitignore
 |-- CLAUDE.md                     # Development guidelines for Claude AI
 |-- composer.json
+|-- composer.lock
 |-- database.md                   # Database schema documentation
+|-- LICENSE.md
 |-- phpstan.neon.dist             # PHPStan/Larastan configuration
 |-- phpunit.xml
 |-- phpunit.xml.dist              # PHPUnit configuration for fresh clones
@@ -128,7 +150,12 @@ The Eloquent models that represent the database tables. These define the structu
 
 ### Services (`src/Services/`)
 - **DynamicExportService**: The main service that executes exports based on configurations
+- **LayoutValidator**: Read-only spot checker behind `export:validate` and the builder
+- **SchemaSync**: Keeps the export catalog in sync with your models (`schema_sync` modes)
 - **TransformationFunctions**: Provides built-in data transformation functions
+
+### Builders (`src/Builders/`)
+`ExportLayoutBuilder` composes a validated layout - columns, filters, and sorts - and saves it in one transaction.
 
 ### Export Handlers (`src/Exports/Handlers/`)
 Format-specific handlers that convert data into different output formats. Easy to extend for custom formats.
@@ -137,6 +164,7 @@ Format-specific handlers that convert data into different output formats. Easy t
 Artisan commands for managing the export system:
 - Import models and discover relationships
 - Seed transformation functions
+- Validate layout configurations (`export:validate`)
 
 ### Jobs (`src/Jobs/`)
 `ProcessExportJob` runs queued exports in the background with cache-based status tracking. Only the `csv` and `json` formats are supported for queued exports.

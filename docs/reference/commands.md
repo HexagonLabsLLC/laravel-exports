@@ -10,14 +10,16 @@ Import and register Eloquent models for exporting.
 php artisan export:import-models [options]
 ```
 
+Optional under the default `lazy` (and `verify`) schema sync mode: a model or relation path missing from the catalog is reflected and registered the first time a layout references it. Run this command to pre-populate the catalog in one pass (useful for UI picklists), or when `laravel-exports.schema_sync` is set to `manual`.
+
 ### Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--path` | Directory to scan (relative to `base_path()` or absolute) | `app/Models` |
 | `--namespace` | Base namespace | `App\Models` |
-| `--filter` | File pattern filter | `*` |
-| `--omit` | Models to exclude from relation inspection | (none) |
+| `--filter` | Class name pattern (fnmatch against the class basename, e.g. `*User*`) | `*` |
+| `--omit` | Models to exclude from the scan and from relation inspection (comma-separated, class names relative to `--namespace`) | (none) |
 | `--force` | Re-import existing models | false |
 | `--skip-relations` | Skip syncing columns and relationships | false |
 | `--deep` | Discover nested relationships | false |
@@ -39,20 +41,26 @@ php artisan export:import-models \
     --namespace=App\\Domain\\Models
 ```
 
-### Filter Models
+### Import a Subset
+
+Narrow an import to matching class names:
 
 ```bash
-# Import only User-related models
 php artisan export:import-models --filter=*User*
+```
 
-# Import models starting with Order
-php artisan export:import-models --filter=Order*
+Or scope by directory:
+
+```bash
+php artisan export:import-models \
+    --path=app/Models/Billing \
+    --namespace=App\\Models\\Billing
 ```
 
 ### Exclude Models
 
 ```bash
-# Omit specific models from relation inspection
+# Omit specific models from the scan and from relation inspection
 php artisan export:import-models --omit=AuditLog,TempRecord
 ```
 
@@ -109,21 +117,32 @@ php artisan export:import-models --deep --deep-columns
 ### Output Example
 
 ```
-Importing models from app/Models with namespace App\Models...
+Scanning for models in: /app/app/Models
+Using namespace: App\Models
+Found 5 model(s)
+Imported: User (App\Models\User)
+Imported: Post (App\Models\Post)
+...
 
-Found 5 model(s):
-  [1/5] User
-    - Created export model: User
-    - Synced 8 columns, 4 relationships
-  [2/5] Post
-    - Created export model: Post
-    - Synced 5 columns, 3 relationships
+Phase 1 complete: 5 models imported, 0 skipped
+
+Phase 2: Adding columns for all models...
+  -> User: Synced 8 columns
   ...
+After Phase 2 - Columns: 25, Relations: 0
 
-Import complete!
-  Models imported: 5
-  Total columns: 25
-  Total relationships: 15
+Phase 3: Adding relations for all models...
+  -> User: Found 4 relations, synced 4
+  ...
+After Phase 3 - Columns: 25, Relations: 15
+
+Import completed. Imported 5 models.
+Database totals:
+  - Total export_model_relations: 40
+  - Columns (is_column=true): 25
+  - Relations (is_column=false): 15
+
+Debug log written to: /app/storage/logs/import-models-2026-01-01-12-00-00.log
 ```
 
 ---
@@ -199,20 +218,17 @@ php artisan export:seed-functions --force
 
 ```
 Seeding transformation functions...
+Created: Format Date
+Created: Format Date Human
+...
+Skipped: Hash (already exists)
+Created: Mask
 
-  [1/23] Format Date - created
-  [2/23] Format Date Human - created
-  [3/23] Format Timestamp - created
-  [4/23] Date Difference - created
-  ...
-  [21/23] Concatenate - created
-  [22/23] Hash - already exists (use --force to update)
-  [23/23] Mask - created
-
-Seeding complete!
-  Created: 22
-  Skipped: 1
+Transformation functions seeding complete!
+Created: 22, Updated: 0, Skipped: 1
 ```
+
+The command then prints a table of every function in the database (name, callable, parameters, description).
 
 ---
 
@@ -237,7 +253,7 @@ Layout: posts_report
 | warning  | column:Created        | Format 'Created at' has no {value} placeholder       |
 +----------+-----------------------+------------------------------------------------------+
 
-3 layouts checked, 2 errors, 1 warning
+3 layouts checked, 2 errors, 1 warnings
 ```
 
 Messages come from the `laravel-exports::validation` lang namespace and can be overridden or translated; see the API reference.
@@ -250,7 +266,7 @@ Messages come from the `laravel-exports::validation` lang namespace and can be o
 # 1. Run migrations
 php artisan migrate
 
-# 2. Import all models with deep discovery
+# 2. Optional under lazy sync: pre-populate the catalog in one pass
 php artisan export:import-models --deep
 
 # 3. Seed transformation functions
@@ -303,13 +319,14 @@ Ensure the service provider is registered:
 
 ### Memory Issues
 
-For large codebases, import in batches:
+For large codebases, import one directory at a time:
 
 ```bash
-php artisan export:import-models --filter=User*
-php artisan export:import-models --filter=Order*
-php artisan export:import-models --filter=Product*
+php artisan export:import-models --path=app/Models/Billing --namespace=App\\Models\\Billing
+php artisan export:import-models --path=app/Models/Crm --namespace=App\\Models\\Crm
 ```
+
+Or skip the bulk import entirely and let lazy sync register models as layouts reference them.
 
 ### Missing Relations
 

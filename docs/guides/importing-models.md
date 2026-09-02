@@ -34,14 +34,14 @@ php artisan export:import-models \
 
 ### Filter Models
 
-Import only specific models:
+The `--filter` option is accepted and logged, but it is not applied yet: every model
+under `--path` is scanned. To import a subset, point `--path` and `--namespace` at a
+subdirectory:
 
 ```bash
-# Import only User-related models
-php artisan export:import-models --filter=*User*
-
-# Import models starting with "Order"
-php artisan export:import-models --filter=Order*
+php artisan export:import-models \
+    --path=app/Models/Billing \
+    --namespace=App\\Models\\Billing
 ```
 
 ### Omit Models
@@ -191,10 +191,15 @@ $exportModel = ExportModel::create([
 ]);
 ```
 
-To discover its columns and relationships, run the import command afterward:
+Its columns and relationships are discovered on first reference under the default lazy
+sync. To populate them immediately, run the import command or call the sync service:
 
 ```bash
 php artisan export:import-models --force
+```
+
+```php
+app(\HexagonLabsLLC\LaravelExports\Services\SchemaSync::class)->syncModel(\App\Models\User::class);
 ```
 
 ## Accessing Registered Models
@@ -337,11 +342,12 @@ php artisan export:import-models --deep --omit=AuditLog
 For large applications with many models:
 
 ```bash
-# Import in batches
-php artisan export:import-models --filter=User*
-php artisan export:import-models --filter=Order*
-php artisan export:import-models --filter=Product*
+# Import one directory at a time
+php artisan export:import-models --path=app/Models/Billing --namespace=App\\Models\\Billing
+php artisan export:import-models --path=app/Models/Crm --namespace=App\\Models\\Crm
 ```
+
+Or skip the bulk import and let lazy sync register models as layouts reference them.
 
 ## Best Practices
 

@@ -1,6 +1,6 @@
 # Multi-Format Export
 
-Export data in different formats (CSV, JSON) from the same layout.
+Export data in different formats (CSV, JSON, and XLSX) from the same layout.
 
 ## Scenario
 
@@ -80,7 +80,7 @@ class OrderExportController extends Controller
     public function export(Request $request)
     {
         $validated = $request->validate([
-            'format' => 'required|in:csv,json',
+            'format' => 'required|in:csv,json,xlsx',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date',
             'status' => 'nullable|array',
@@ -132,6 +132,30 @@ return $service->downloadAs($layout, 'json', 'orders.json', $requestData, [
 ```
 
 By default, rows are wrapped in a `data` key alongside metadata. With `include_meta` enabled, rows are always wrapped in a `data` key. Set both `wrap_data` and `include_meta` to false for a bare array of rows.
+
+### XLSX Options
+
+The `xlsx` format needs the optional `phpoffice/phpspreadsheet` package
+(`composer require phpoffice/phpspreadsheet`); the handler throws with install
+instructions when it is missing.
+
+```php
+return $service->downloadAs($layout, 'xlsx', 'orders.xlsx', $requestData, [
+    'include_headers' => true,  // Header row per sheet (default: true)
+    'sheet_title' => 'Orders',  // Single-sheet title (default: layout title, then name)
+    'sheet_by' => 'Status',     // One sheet per distinct value of this column title
+]);
+```
+
+### Custom Formats
+
+Register your own handler to add a format:
+
+```php
+use HexagonLabsLLC\LaravelExports\Exports\ExportFactory;
+
+ExportFactory::register('pdf', PdfExportHandler::class); // must extend ExportHandler
+```
 
 ## Sample Outputs
 
@@ -260,6 +284,7 @@ The handlers set appropriate content types:
 
 - **CSV**: `text/csv`
 - **JSON**: `application/json`
+- **XLSX**: `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
 
 ## Streaming Large Exports
 

@@ -206,7 +206,7 @@ public function queueExport(
 
 **Options:** `disk` and `path` override the configured storage disk and path for the generated file.
 
-**Note:** Queued exports support only the `csv` and `json` formats. Other formats throw an `InvalidArgumentException`.
+**Note:** Queued exports support only the `csv` and `json` formats. `queueExport()` itself always dispatches; another format throws an `InvalidArgumentException` when the job runs, which marks the export `failed` with that message.
 
 **Example:**
 ```php
@@ -344,6 +344,7 @@ Represents an exportable Eloquent model.
 - `id` (uuid) - Primary key
 - `title` (string) - Display name
 - `model` (string) - Full class name
+- `schema_hash` (string, nullable) - Fingerprint of the reflected schema, used by the `verify` sync mode
 
 **Attributes:**
 - `instance` - Returns the actual Eloquent model instance
@@ -351,6 +352,8 @@ Represents an exportable Eloquent model.
 **Relationships:**
 - `layouts()` - HasMany ExportLayout
 - `relations()` - HasMany ExportModelRelation
+- `filters()` - HasMany ExportFilter
+- `sorts()` - HasMany ExportSort
 
 ### ExportLayout
 
@@ -492,8 +495,8 @@ Defines filtering criteria.
 - `export_model_relation_id` (uuid, nullable)
 - `operator` (enum) - See [Operators Reference](operators.md)
 - `value` (json, nullable)
-- `value_type` (enum) - string, number, boolean, array, date
-- `logical_operator` (enum) - AND, OR
+- `value_type` (enum) - string, integer, float, boolean, array (only `array` changes runtime behavior; it JSON-decodes the stored value)
+- `logical_operator` (enum) - AND, OR. An `or` filter groups with the filter before it and the group is ANDed with the rest; see [Operators Reference](operators.md#logical-operators)
 - `is_request` (boolean)
 - `is_required` (boolean)
 

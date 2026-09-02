@@ -17,6 +17,20 @@ Errors and warnings are still written to Laravel's default log channel:
 storage/logs/laravel.log
 ```
 
+## Validating a Layout
+
+Most configuration problems are reported by the built-in validator before you run an
+export. It never writes to the database, so it is safe on replicas and in CI:
+
+```bash
+php artisan export:validate --layout=my_layout
+```
+
+Missing catalog rows are a special case: under the default `lazy` (and `verify`)
+`schema_sync` mode the catalog fills itself on first reference, so "not found" errors in
+those modes point at a path that does not resolve on the model. In `manual` mode they
+mean the import has not been run. See [Configuration](configuration.md#schema-sync).
+
 ## Common Errors
 
 ### Model Not Found
@@ -455,7 +469,8 @@ If you're still experiencing issues:
 
 When troubleshooting, verify:
 
-- [ ] Models are imported (`export:import-models`)
+- [ ] Layouts pass `export:validate`
+- [ ] Models are in the catalog - automatic under the default lazy `schema_sync`, otherwise run `export:import-models`
 - [ ] Functions are seeded (`export:seed-functions`)
 - [ ] Migrations have run (`migrate:status`)
 - [ ] value_path uses correct dot notation

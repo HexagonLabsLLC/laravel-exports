@@ -91,7 +91,7 @@ ExportLayout::create([
 Spot-check a layout before saving, or audit every layout in CI:
 
 ```php
-$problems = ExportLayoutBuilder::for(User::class)->column(...)->validate();
+$problems = ExportLayoutBuilder::for(User::class)->column('Name', 'name')->validate();
 $problems = app(LayoutValidator::class)->validateDraft($request->all());
 ```
 
@@ -130,9 +130,11 @@ $status = ProcessExportJob::getStatus($exportId);
 
 ### Multi-Sheet XLSX
 
-```php
+```bash
 composer require phpoffice/phpspreadsheet
+```
 
+```php
 return $service->downloadAs($layout, 'xlsx', 'report.xlsx', [], ['sheet_by' => 'Author']);
 ```
 

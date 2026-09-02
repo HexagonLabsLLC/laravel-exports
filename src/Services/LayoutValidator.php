@@ -267,7 +267,8 @@ class LayoutValidator
             $this->error('between_requires_two', $source);
         }
 
-        if ($operator === 'relation' && $value !== null && (!is_array($decoded) || count($decoded) < 3)) {
+        // Scalar relation values are a working shorthand; only malformed arrays are errors
+        if ($operator === 'relation' && is_array($decoded) && count($decoded) < 3) {
             $this->error('relation_config_shape', $source);
         }
 

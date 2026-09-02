@@ -19,7 +19,10 @@ Export all users with their basic information: name, email, and registration dat
 
 ## Setup
 
-### 1. Import Models
+### 1. Import Models (Optional)
+
+Only needed to pre-populate the catalog, or when `laravel-exports.schema_sync` is
+`manual`. The default lazy mode registers the model on first reference.
 
 ```bash
 php artisan export:import-models
@@ -144,8 +147,8 @@ return $service->downloadAs($layout, 'json', 'users.json');
 $data = $service->executeExport($layout);
 
 foreach ($data as $row) {
-    // Process each row
-    echo $row['name'] . "\n";
+    // Rows are keyed by the column title (falling back to value_path)
+    echo $row['Name'] . "\n";
 }
 ```
 

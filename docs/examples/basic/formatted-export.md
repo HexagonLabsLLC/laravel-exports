@@ -106,9 +106,11 @@ jane,5678.9,0,2024-02-20 09:15:00
 **After (with functions):**
 ```csv
 Name,Account Balance,Active,Member Since
-John,$1,234.57,Yes,"January 15, 2024"
-Jane,$5,678.90,No,"February 20, 2024"
+John,"$1,234.57",Yes,"January 15, 2024"
+Jane,"$5,678.90",No,"February 20, 2024"
 ```
+
+(Values containing the delimiter are enclosed by `fputcsv`.)
 
 ## Common Formatting Patterns
 
@@ -164,7 +166,7 @@ $percentage = ExportFunction::where('name', 'Percentage')->first();
 
 // EUR
 'export_function_values' => [null, 'EUR', 'de_DE']
-// Output: "1.234,56 EUR"
+// Output: "1.234,56" followed by the euro sign
 
 // GBP
 'export_function_values' => [null, 'GBP', 'en_GB']
@@ -193,7 +195,7 @@ $percentage = ExportFunction::where('name', 'Percentage')->first();
 // Truncate long text
 $truncate = ExportFunction::where('name', 'Truncate')->first();
 'export_function_values' => [null, 50, '...']
-// Output: "This is a very long..." (50 chars max)
+// Output: the first 50 characters followed by "..."
 
 // Mask sensitive data
 $mask = ExportFunction::where('name', 'Mask')->first();

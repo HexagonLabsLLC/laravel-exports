@@ -14,6 +14,10 @@ Aggregations process collection values to produce a single result. Use them when
 | `first` | First item | Mixed |
 | `last` | Last item | Mixed |
 
+`average` is accepted as an alias of `avg` by the service and the validator, but the
+`export_columns.aggregator` enum does not include it - so it only works from a layout's
+`column_definitions`.
+
 ## Basic Usage
 
 ```php

@@ -22,7 +22,11 @@ Laravel Exports supports traversing multiple relationship levels:
 
 ## Setup
 
-### Import Models with Deep Discovery
+### Import Models with Deep Discovery (Optional)
+
+Under the default `lazy` schema sync, a nested path is validated and registered the
+first time a layout references it, so this step only pre-populates the catalog. It is
+required when `laravel-exports.schema_sync` is `manual`.
 
 ```bash
 # Discover nested relationships up to 2 levels
@@ -43,6 +47,9 @@ When you use a nested path that doesn't exist as a relation, the system:
 1. Validates the path is traversable
 2. Creates the missing `ExportModelRelation` record
 3. Proceeds with the export
+
+Step 2 only happens while `laravel-exports.schema_sync` allows writes (`lazy` or
+`verify`). In `manual` mode nothing is written and an unregistered path throws.
 
 ## Basic Usage
 
@@ -308,10 +315,11 @@ $columns = [
 
 ### Relation Not Found
 
-If you get "relation not found" errors:
+If you get "relation not found" errors, first check `laravel-exports.schema_sync`: under
+`lazy`/`verify` a valid path registers itself, so the error usually means the path does
+not resolve on the model. In `manual` mode, register it with an import:
 
 ```bash
-# Re-run model import with deep discovery
 php artisan export:import-models --force --deep --deep-level=3
 ```
 
