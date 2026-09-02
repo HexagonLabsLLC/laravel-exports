@@ -1,3 +1,23 @@
+# v1.0.0-rc.7 (feat/pivot-group-buckets)
+
+Pivot grouping learns per-entry date buckets.
+
+## Features
+
+- **Per-entry pivot group formats**: `group_by` and `sub_group_by` entries may
+  now be arrays - `['path' => 'created_at', 'format' => 'month', 'header' =>
+  'Month']` - so relation paths (`customer.name`) mix freely with date buckets
+  in one grouping. The entry `header` beats the indexed
+  `group_by_headers`/`sub_group_by_headers` fallback.
+- **Date buckets** `day`, `week` (ISO; `week_year` kept as an alias), `month`,
+  `quarter`, and `year`, with driver-aware SQL for mysql, sqlite, and pgsql
+  (previously `week_year` was the only format and mysql-only). The global
+  `group_by_format` still applies to string `group_by` entries and now accepts
+  any bucket. `week_start => 'sunday'` stays mysql-only (YEARWEEK mode 0) and
+  throws elsewhere instead of silently numbering weeks differently.
+- **Validation**: `export:validate` reports `unknown_group_format`,
+  `missing_group_path`, and `unknown_week_start` for pivot group entries.
+
 # v1.0.0-rc.6 (feat/lazy-catalog-builders)
 
 The export catalog becomes a lazily self-syncing cache, and layouts gain

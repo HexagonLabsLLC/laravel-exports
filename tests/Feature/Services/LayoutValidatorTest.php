@@ -162,6 +162,32 @@ it('flags unresolvable pivot paths and config values', function () {
         ->and($codes)->not->toContain('no_columns');
 });
 
+it('validates pivot group entry shapes and date buckets', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->postExportModel->id,
+        'name' => 'bucket_pivot',
+        'is_pivot' => true,
+        'pivot_config' => [
+            'group_by' => [
+                'user.name',
+                ['path' => 'created_at', 'format' => 'month'],
+                ['path' => 'created_at', 'format' => 'fortnight'],
+                ['format' => 'month'],
+            ],
+            'week_start' => 'friday',
+            'aggregation' => 'sum',
+        ],
+    ]);
+
+    $problems = $this->validator->validate($layout);
+    $codes = array_column($problems, 'code');
+
+    expect($codes)->toContain('unknown_group_format', 'missing_group_path')
+        ->and($codes)->not->toContain('unknown_pivot_path')
+        ->and(collect($problems)->firstWhere('code', 'unknown_group_format')['params']['format'])->toBe('fortnight')
+        ->and(collect($problems)->firstWhere('code', 'unknown_week_start'))->toMatchArray(['severity' => 'warning']);
+});
+
 it('spot checks staged builder layouts without saving', function () {
     $problems = ExportLayoutBuilder::for(Post::class)
         ->name('staged')
