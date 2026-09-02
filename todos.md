@@ -42,6 +42,7 @@ The core export functionality is fully implemented and production-ready. The mai
 
 ### Recent Changes
 
+- **Added XLSX export via optional phpoffice/phpspreadsheet** (2026-09-01, branch `chore/audit-l13-simplify`): New `XlsxExportHandler` registered as the `xlsx` format. The dependency is a composer `suggest` plus `require-dev` (for our tests), never a hard requirement; the handler's constructor throws "composer require phpoffice/phpspreadsheet" guidance when the package is absent, and PHP's lazy autoloading means users without it pay nothing. String cells use an explicit string type so values like `=SUM(A1)` are stored as text (formula-injection safe, covered by a round-trip regression test). The workbook builds in memory, so csv remains the recommendation for very large exports; queued exports stay csv/json only. Package vetted via the supply-chain cache (trustworthy, 2026-06-18).
 - **Full codebase audit: correctness fixes, Laravel 13 readiness, and simplification** (2026-08-31, branch `chore/audit-l13-simplify`):
   - **Correctness fixes in the export pipeline**:
     - Fresh installs can now migrate: the `export_relation_id` rename migration is guarded with `Schema::hasColumn` (the base migration already creates the final column name).

@@ -40,7 +40,7 @@ This is a Laravel package that provides a comprehensive, database-driven export 
 - **DynamicExportService** (`src/Services/DynamicExportService.php`): Main export execution engine with enhanced relation handling and validation
 - **ModelRelationInspector** (`src/Helpers/ModelRelationInspector.php`): Discovers model columns and relationships using reflection with transaction safety
 - **TransformationFunctions** (`src/Services/TransformationFunctions.php`): Provides 23 built-in transformation functions for data formatting
-- **ExportFactory** (`src/Exports/ExportFactory.php`): Factory for creating export handlers (CSV, JSON, etc.)
+- **ExportFactory** (`src/Exports/ExportFactory.php`): Factory for creating export handlers (CSV, JSON, and XLSX via the optional phpoffice/phpspreadsheet package)
 
 ### Database Schema
 
@@ -73,7 +73,7 @@ The package uses 7 tables that work together (all using UUIDs as primary keys):
 src/
 |-- Models/          # Eloquent models for export tables
 |-- Services/        # Core export logic (DynamicExportService, TransformationFunctions)
-|-- Exports/         # Export handlers (CSV, JSON) and factory
+|-- Exports/         # Export handlers (CSV, JSON, XLSX) and factory
 |-- Enums/           # OperatorType enum with all filter operators
 |-- Console/         # Artisan commands (export:import-models, export:seed-functions)
 |-- Jobs/            # ProcessExportJob for queued background exports
@@ -120,7 +120,7 @@ docs/                # Documentation for Claude's reference
    - Each function has configuration parameters for customization
 
 4. **Export Handlers**:
-   - Streaming support for large datasets in both CSV and JSON formats
+   - Streaming support for large datasets in CSV and JSON formats (XLSX builds the workbook in memory)
    - Memory-efficient processing via chunked queries and streamed responses
    - Extensible architecture for custom export formats
 

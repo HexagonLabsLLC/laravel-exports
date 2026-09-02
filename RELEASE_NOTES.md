@@ -29,6 +29,15 @@ or broken public surface.
   `getQuery()` to inspect the built query. Errors and warnings are still
   logged.
 
+## Features
+
+- **XLSX export format** via a new `XlsxExportHandler`. The
+  `phpoffice/phpspreadsheet` dependency is optional (composer `suggest`, not
+  `require`); the handler throws with install instructions when the package is
+  absent, so nothing changes for users who never export xlsx. String cells are
+  written with an explicit string type so data cannot execute as formulas.
+  Queued exports remain csv/json only.
+
 ## Fixes
 
 - Fresh installs no longer fail on the `export_relation_id` rename migration;

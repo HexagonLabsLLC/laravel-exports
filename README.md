@@ -12,7 +12,7 @@ A powerful, database-driven export system for Laravel applications that provides
 - **Transformation Functions** - 23 built-in functions for formatting dates, strings, numbers
 - **Aggregations** - Sum, count, average, min, max, first, last on collections
 - **Large Dataset Support** - Chunking, streaming, and background job processing
-- **Multiple Formats** - CSV and JSON out of the box, extensible for more
+- **Multiple Formats** - CSV and JSON out of the box, XLSX via the optional phpoffice/phpspreadsheet package, extensible for more
 
 ## Documentation
 

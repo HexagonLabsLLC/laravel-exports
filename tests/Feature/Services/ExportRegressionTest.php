@@ -12,6 +12,8 @@ use HexagonLabsLLC\LaravelExports\Tests\TestModels\Category;
 use HexagonLabsLLC\LaravelExports\Tests\TestModels\Post;
 use HexagonLabsLLC\LaravelExports\Tests\TestModels\Tag;
 use HexagonLabsLLC\LaravelExports\Tests\TestModels\User;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 beforeEach(function () {
     User::insert([
@@ -334,6 +336,39 @@ it('reports the export model title in json meta', function () {
     $decoded = json_decode($this->service->exportTo($layout->id, 'json'), true);
 
     expect($decoded['meta']['model'])->toBe('User Export');
+});
+
+it('exports xlsx with formula-safe string cells', function () {
+    User::insert([
+        ['name' => '=2+2', 'email' => 'evil2@example.com', 'created_at' => now(), 'updated_at' => now()],
+    ]);
+
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->userExportModel->id,
+        'name' => 'Xlsx Export',
+    ]);
+
+    ExportColumn::create([
+        'export_layout_id' => $layout->id,
+        'export_model_relation_id' => $this->nameRelation->id,
+        'title' => 'Name',
+        'value_path' => 'name',
+        'position' => 1,
+    ]);
+
+    $xlsx = $this->service->exportTo($layout->id, 'xlsx');
+
+    expect(substr($xlsx, 0, 2))->toBe('PK');
+
+    $tmp = tempnam(sys_get_temp_dir(), 'lex').'.xlsx';
+    file_put_contents($tmp, $xlsx);
+    $sheet = IOFactory::load($tmp)->getActiveSheet();
+    unlink($tmp);
+
+    expect($sheet->getCell('A1')->getValue())->toBe('Name')
+        ->and($sheet->getCell('A2')->getValue())->toBe('John Doe')
+        ->and($sheet->getCell('A5')->getValue())->toBe('=2+2')
+        ->and($sheet->getCell('A5')->getDataType())->toBe(DataType::TYPE_STRING);
 });
 
 it('neutralizes formula injection in csv output', function () {

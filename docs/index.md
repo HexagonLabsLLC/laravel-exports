@@ -11,7 +11,7 @@ Laravel Exports is a powerful, database-driven export system for Laravel applica
 - **Transformation Functions** - 23 built-in functions for data formatting
 - **Aggregations** - sum, count, avg, min, max, first, last on collections
 - **Performance Optimized** - Smart eager loading, chunking, and streaming
-- **Multiple Formats** - CSV and JSON with extensible architecture
+- **Multiple Formats** - CSV and JSON built in, XLSX via the optional phpoffice/phpspreadsheet package
 - **Background Processing** - Queue large exports with status tracking
 - **Pivot Table Support** - Export BelongsToMany pivot attributes
 

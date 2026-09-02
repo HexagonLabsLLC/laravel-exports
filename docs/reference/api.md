@@ -484,6 +484,13 @@ ExportModelRelation::whereNested('workItem.workOrder.customer')->first();
 - `wrap_data` (boolean) - Default: true. Wrap rows in a `data` key.
 - `include_meta` (boolean) - Default: true. Include metadata; when enabled, rows are always wrapped in a `data` key.
 
+### XlsxExportHandler
+
+Requires the optional `phpoffice/phpspreadsheet` package (`composer require phpoffice/phpspreadsheet`); the handler throws with install instructions when it is missing. String cells are written with an explicit string type, so values like `=SUM(A1)` are stored as text and never execute as formulas. The workbook is built in memory; prefer csv for very large exports. Not supported by queued exports.
+
+**Options:**
+- `include_headers` (boolean) - Default: true
+
 ---
 
 ## ModelRelationInspector
