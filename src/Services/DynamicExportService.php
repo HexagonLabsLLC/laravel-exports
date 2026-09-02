@@ -14,6 +14,7 @@ use HexagonLabsLLC\LaravelExports\Models\ExportModel;
 use HexagonLabsLLC\LaravelExports\Models\ExportModelRelation;
 use HexagonLabsLLC\LaravelExports\Models\ExportSort;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -100,7 +101,7 @@ class DynamicExportService
      * the relation-operator filter extraction path, so each cell is the
      * column's value_path aggregated over the row's matching related items.
      */
-    protected function expandColumns(Collection $results): void
+    protected function expandColumns(EloquentCollection $results): void
     {
         if (!$this->hasExpandedColumns()) {
             return;
@@ -1856,7 +1857,7 @@ class DynamicExportService
         }
 
         // Handle collection of related items
-        if ($related instanceof \Illuminate\Database\Eloquent\Collection || $related instanceof Collection) {
+        if ($related instanceof EloquentCollection || $related instanceof Collection) {
             return $related->map(function ($item) use ($pivotAttribute) {
                 return $this->extractPivotValue($item, $pivotAttribute);
             });
