@@ -28,18 +28,35 @@ class TestCase extends Orchestra
     public function getEnvironmentSetUp($app)
     {
         $app['config']->set('database.default', 'testing');
-        $app['config']->set('database.connections.testing', [
-            'driver' => 'sqlite',
-            'database' => ':memory:',
-            'prefix' => '',
-            'foreign_key_constraints' => true,
-        ]);
+
+        if (getenv('DB_DRIVER') === 'mysql') {
+            $app['config']->set('database.connections.testing', [
+                'driver' => 'mysql',
+                'host' => getenv('DB_HOST') ?: '127.0.0.1',
+                'port' => getenv('DB_PORT') ?: '3306',
+                'database' => getenv('DB_DATABASE') ?: 'laravel_exports_test',
+                'username' => getenv('DB_USERNAME') ?: 'root',
+                'password' => getenv('DB_PASSWORD') ?: '',
+                'prefix' => '',
+            ]);
+        } else {
+            $app['config']->set('database.connections.testing', [
+                'driver' => 'sqlite',
+                'database' => ':memory:',
+                'prefix' => '',
+                'foreign_key_constraints' => true,
+            ]);
+        }
 
         $this->setUpDatabase();
     }
 
     protected function setUpDatabase(): void
     {
+        // A fresh :memory: sqlite database needs no cleanup, but persistent
+        // drivers (mysql in CI) carry tables over from the previous test
+        Schema::dropAllTables();
+
         // Package tables - final schema consolidating all migrations
         Schema::create('export_models', function ($table) {
             $table->uuid('id')->primary();
