@@ -1,5 +1,6 @@
 <?php
 
+use HexagonLabsLLC\LaravelExports\Builders\ExportLayoutBuilder;
 use HexagonLabsLLC\LaravelExports\Exports\ExportFactory;
 use HexagonLabsLLC\LaravelExports\Models\ExportColumn;
 use HexagonLabsLLC\LaravelExports\Models\ExportFilter;
@@ -7,6 +8,7 @@ use HexagonLabsLLC\LaravelExports\Models\ExportFunction;
 use HexagonLabsLLC\LaravelExports\Models\ExportLayout;
 use HexagonLabsLLC\LaravelExports\Models\ExportModel;
 use HexagonLabsLLC\LaravelExports\Models\ExportModelRelation;
+use HexagonLabsLLC\LaravelExports\Models\ExportSort;
 use HexagonLabsLLC\LaravelExports\Services\DynamicExportService;
 use HexagonLabsLLC\LaravelExports\Services\TransformationFunctions;
 use HexagonLabsLLC\LaravelExports\Tests\TestModels\Category;
@@ -579,6 +581,43 @@ it('applies sort definitions from the layout row', function () {
 
     expect(collect($result)->pluck('Title')->all())
         ->toBe(['Third Post', 'Second Post', 'First Post']);
+});
+
+it('builds and saves catalog-backed layouts fluently', function () {
+    ExportModelRelation::query()->delete();
+    ExportModel::query()->delete();
+
+    $layout = ExportLayoutBuilder::for(Post::class)
+        ->name('built_report')
+        ->title('Built Report')
+        ->column('Title', 'title')
+        ->column('Author', 'user.name')
+        ->column('Tag Total', ['relation' => 'tags', 'value_path' => 'tags.value', 'aggregator' => 'sum', 'default' => '0'])
+        ->filter('published', '=', true)
+        ->sort('title', 'desc')
+        ->save();
+
+    expect($layout->columns()->count())->toBe(3)
+        ->and(ExportFilter::where('export_layout_id', $layout->id)->count())->toBe(1)
+        ->and(ExportSort::where('export_layout_id', $layout->id)->count())->toBe(1);
+
+    $result = $this->service->executeExport($layout->id)->toArray();
+
+    expect($result)->toHaveCount(2)
+        ->and(collect($result)->pluck('Title')->all())->toBe(['Third Post', 'First Post'])
+        ->and($result[0]['Author'])->toBe('Jane Smith')
+        ->and($result[1]['Tag Total'])->toBe(170);
+});
+
+it('rolls back the whole builder save on invalid paths', function () {
+    expect(fn () => ExportLayoutBuilder::for(Post::class)
+        ->name('broken_report')
+        ->column('Good', 'title')
+        ->column('Bad', ['relation' => 'not_real'])
+        ->save())
+        ->toThrow(InvalidArgumentException::class, "Relation 'not_real'");
+
+    expect(ExportLayout::where('name', 'broken_report')->exists())->toBeFalse();
 });
 
 it('formats column values with the {value} template', function () {
