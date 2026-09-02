@@ -1,3 +1,18 @@
+# Unreleased (feat/xlsx-queued-exports)
+
+## Features
+
+- **Queued exports run any registered format.** `ProcessExportJob` keeps its
+  chunked writers for `csv` and `json` (flat memory), and hands every other
+  format - `xlsx` and anything added with `ExportFactory::register()` - to its
+  handler. `queueExport()`'s `$options` are passed through to that handler
+  (`sheet_by`, `sheet_title`, `include_headers`) and the stored file is named
+  from the handler's `getExtension()`. Handler-backed formats buffer the whole
+  result set in memory, so csv stays the recommendation for very large
+  exports. An unregistered format still fails the job, now with the factory's
+  "Unsupported export format" message, and a handler that returns something
+  other than a string from `export()` fails with a clear reason.
+
 # v1.0.0-rc.6 (feat/lazy-catalog-builders)
 
 The export catalog becomes a lazily self-syncing cache, and layouts gain

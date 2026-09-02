@@ -29,7 +29,23 @@ return response()->json([
 ]);
 ```
 
-Queued exports support only the `csv` and `json` formats. Other formats throw an `InvalidArgumentException` when the job runs.
+Any format registered with `ExportFactory` can be queued. `csv` and `json` are written chunk by chunk to a temp file and then streamed to the disk, so memory stays flat regardless of row count; queued `json` is always a plain array of row objects.
+
+### Queue a Handler-Backed Format
+
+```php
+// One sheet per region; xlsx options are passed through to the handler
+$exportId = $service->queueExport(
+    $layout,
+    'xlsx',
+    $requestData,
+    ['sheet_by' => 'Region']
+);
+```
+
+xlsx and custom handlers buffer the full result set in memory and call the handler's `export()`, so csv stays the recommendation for very large exports; xlsx is fine for report-sized ones. The stored file's extension comes from the handler's `getExtension()`, so a custom `excel` format whose handler returns `xlsx` writes a `.xlsx` file.
+
+An unregistered format throws an `InvalidArgumentException` when the job runs ("Unsupported export format: pdf. Supported formats: csv, json, xlsx"), and `xlsx` without `phpoffice/phpspreadsheet` throws a `RuntimeException` with install instructions. Either way the export ends up `failed` with the message in `error`.
 
 ### Check Status
 
@@ -52,6 +68,8 @@ $status = ProcessExportJob::getStatus($exportId);
 
 // On completion the payload also carries:
 // 'row_count', 'path', 'disk', 'url', 'filename', 'completed_at'
+// A zero-row export completes with 'row_count' => 0 and
+// 'message' => 'No records to export', and writes no file.
 // On failure: 'error' and 'failed_at'
 ```
 
@@ -86,7 +104,7 @@ class BackgroundExportController extends Controller
     public function start(Request $request, string $layoutId)
     {
         $validated = $request->validate([
-            'format' => 'in:csv,json',
+            'format' => 'in:csv,json,xlsx',
             'filters' => 'array',
         ]);
 

@@ -138,7 +138,13 @@ return response()->json([
 ]);
 ```
 
-Queued exports support only the `csv` and `json` formats. Other formats throw an `InvalidArgumentException` when the job runs.
+Any format registered with `ExportFactory` can be queued. `csv` and `json` are written chunk by chunk to a temp file and then streamed to the disk, so memory stays flat; queued `json` is always a plain array of row objects. xlsx and custom handlers buffer the full result set in memory and call the handler's `export()`, with `$options` passed through:
+
+```php
+$exportId = $service->queueExport($layout, 'xlsx', $requestData, ['sheet_by' => 'Region']);
+```
+
+Prefer csv for very large exports. An unregistered format, or `xlsx` without `phpoffice/phpspreadsheet`, marks the export `failed` with the reason in `error`.
 
 ### Check Status
 
@@ -346,8 +352,8 @@ Fewer columns = faster processing:
 
 ```php
 // Instead of 50 columns, create focused layouts
-$summaryLayout = ...;  // 10 columns for quick exports
-$detailedLayout = ...; // 50 columns for full exports
+$summaryLayout = ExportLayout::firstWhere('name', 'orders_summary');   // 10 columns for quick exports
+$detailedLayout = ExportLayout::firstWhere('name', 'orders_detailed'); // 50 columns for full exports
 ```
 
 ### Use Appropriate Chunk Sizes

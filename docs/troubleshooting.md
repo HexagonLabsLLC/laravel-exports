@@ -385,6 +385,12 @@ php artisan queue:failed
 php artisan queue:retry [job-id]
 ```
 
+### Export Failed On Format
+
+**Symptom:** Status is `failed` with "Unsupported export format: ..." or a message asking you to `composer require phpoffice/phpspreadsheet`.
+
+**Cause:** `queueExport()` dispatches without validating the format, so an unregistered format (register it with `ExportFactory::register()`) or a missing `phpoffice/phpspreadsheet` for `xlsx` only surfaces when the job runs.
+
 ### Status Not Updating
 
 **Symptom:** `getStatus()` returns stale data.
@@ -396,8 +402,11 @@ php artisan queue:retry [job-id]
 ```php
 // Clear cache
 Cache::forget("export_status:{$exportId}");
+```
 
-// Or check status TTL
+Or check the status TTL:
+
+```php
 // config/laravel-exports.php
 'status_ttl' => 86400,  // 24 hours
 ```

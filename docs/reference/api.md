@@ -79,7 +79,7 @@ public function executeExportPaginated(
 
 ```php
 [
-    'data' => [...],
+    'data' => [/* ... */],
     'meta' => [
         'current_page' => 1,
         'last_page' => 10,
@@ -206,11 +206,27 @@ public function queueExport(
 
 **Options:** `disk` and `path` override the configured storage disk and path for the generated file.
 
-**Note:** Queued exports support only the `csv` and `json` formats. `queueExport()` itself always dispatches; another format throws an `InvalidArgumentException` when the job runs, which marks the export `failed` with that message.
+**Formats:** Queued exports support every format registered with `ExportFactory` - `csv`, `json`, and `xlsx` built in, plus anything registered via `ExportFactory::register()`.
+
+- `csv` and `json` are written incrementally, chunk by chunk, to a temp file that is then streamed to the disk, so memory stays flat regardless of row count. These two use the job's own writers: the csv options `delimiter`, `enclosure`, `escape`, and `escape_formulas` apply, while queued `json` is always a plain array of row objects (`JsonExportHandler`'s `include_meta`, `wrap_data`, and `pretty` do not apply).
+- Every other format (xlsx and custom handlers) is produced by its `ExportFactory` handler: the job buffers the full result set in memory and calls `$handler->export($rows)`. Handler options come straight from `$options` (for xlsx: `sheet_by`, `sheet_title`, `include_headers`). Because the result set and the built file both sit in memory, csv remains the recommendation for very large exports; xlsx is fine for report-sized ones.
+
+The stored file's extension comes from the handler's `getExtension()` for handler-backed formats, so a custom format named `excel` whose handler returns `xlsx` produces a `.xlsx` file; `csv` and `json` use the format string.
+
+`queueExport()` never validates the format, so these failures surface as export status `failed` with the message in `error`:
+
+- An unregistered format throws `InvalidArgumentException` ("Unsupported export format: pdf. Supported formats: csv, json, xlsx").
+- `xlsx` without the optional `phpoffice/phpspreadsheet` package throws a `RuntimeException` telling you to `composer require phpoffice/phpspreadsheet`.
+- A custom handler whose `export()` returns something other than a string throws a `RuntimeException` naming the format. Queued exports need a string to write to disk: return a string from `export()`, or keep using `downloadAs()`/`exportTo()` for that format.
+
+Expanded columns (`is_expanded`) still throw a `RuntimeException` for queued exports. A zero-row export completes with `row_count => 0` and the message "No records to export", and writes no file.
 
 **Example:**
 ```php
 $exportId = $service->queueExport($layout, 'csv', $requestData);
+
+// Handler-backed format with handler options
+$exportId = $service->queueExport($layout, 'xlsx', $requestData, ['sheet_by' => 'Region']);
 ```
 
 ### getExportStatus()
@@ -282,54 +298,54 @@ Static methods for data transformation.
 ### Date/Time Functions
 
 ```php
-TransformationFunctions::formatDate($date, $format = 'Y-m-d H:i:s')
-TransformationFunctions::formatDateHuman($date)
-TransformationFunctions::formatTimestamp($date, $format = 'Y-m-d H:i:s', $timezone = 'UTC')
-TransformationFunctions::dateDifference($date1, $date2 = null, $unit = 'days')
+TransformationFunctions::formatDate($date, $format = 'Y-m-d H:i:s');
+TransformationFunctions::formatDateHuman($date);
+TransformationFunctions::formatTimestamp($date, $format = 'Y-m-d H:i:s', $timezone = 'UTC');
+TransformationFunctions::dateDifference($date1, $date2 = null, $unit = 'days');
 ```
 
 ### String Functions
 
 ```php
-TransformationFunctions::uppercase($string)
-TransformationFunctions::lowercase($string)
-TransformationFunctions::titleCase($string)
-TransformationFunctions::truncate($string, $length = 50, $suffix = '...')
-TransformationFunctions::slug($string, $separator = '-')
-TransformationFunctions::replace($string, $search, $replace)
-TransformationFunctions::extract($string, $pattern)
+TransformationFunctions::uppercase($string);
+TransformationFunctions::lowercase($string);
+TransformationFunctions::titleCase($string);
+TransformationFunctions::truncate($string, $length = 50, $suffix = '...');
+TransformationFunctions::slug($string, $separator = '-');
+TransformationFunctions::replace($string, $search, $replace);
+TransformationFunctions::extract($string, $pattern);
 ```
 
 ### Number Functions
 
 ```php
-TransformationFunctions::formatNumber($number, $decimals = 2, $thousandsSeparator = ',')
-TransformationFunctions::formatCurrency($number, $currency = 'USD', $locale = 'en_US')
-TransformationFunctions::round($number, $decimals = 0)
-TransformationFunctions::percentage($number, $decimals = 2)
+TransformationFunctions::formatNumber($number, $decimals = 2, $thousandsSeparator = ',');
+TransformationFunctions::formatCurrency($number, $currency = 'USD', $locale = 'en_US');
+TransformationFunctions::round($number, $decimals = 0);
+TransformationFunctions::percentage($number, $decimals = 2);
 ```
 
 ### Boolean Functions
 
 ```php
-TransformationFunctions::booleanText($value, $trueText = 'Yes', $falseText = 'No')
+TransformationFunctions::booleanText($value, $trueText = 'Yes', $falseText = 'No');
 ```
 
 ### Array/JSON Functions
 
 ```php
-TransformationFunctions::jsonExtract($json, $path)
-TransformationFunctions::arrayJoin($array, $separator = ', ')
-TransformationFunctions::arrayCount($array)
+TransformationFunctions::jsonExtract($json, $path);
+TransformationFunctions::arrayJoin($array, $separator = ', ');
+TransformationFunctions::arrayCount($array);
 ```
 
 ### Utility Functions
 
 ```php
-TransformationFunctions::defaultValue($value, $default = '')
-TransformationFunctions::concatenate($value1, $value2, $separator = ' ')
-TransformationFunctions::hash($value, $algorithm = 'sha256')
-TransformationFunctions::mask($string, $visibleChars = 4, $maskChar = '*')
+TransformationFunctions::defaultValue($value, $default = '');
+TransformationFunctions::concatenate($value1, $value2, $separator = ' ');
+TransformationFunctions::hash($value, $algorithm = 'sha256');
+TransformationFunctions::mask($string, $visibleChars = 4, $maskChar = '*');
 ```
 
 ---
@@ -574,7 +590,7 @@ ExportModelRelation::whereNested('workItem.workOrder.customer')->first();
 
 ### XlsxExportHandler
 
-Requires the optional `phpoffice/phpspreadsheet` package (`composer require phpoffice/phpspreadsheet`); the handler throws with install instructions when it is missing. String cells are written with an explicit string type, so values like `=SUM(A1)` are stored as text and never execute as formulas. The workbook is built in memory; prefer csv for very large exports. Not supported by queued exports.
+Requires the optional `phpoffice/phpspreadsheet` package (`composer require phpoffice/phpspreadsheet`); the handler throws with install instructions when it is missing. String cells are written with an explicit string type, so values like `=SUM(A1)` are stored as text and never execute as formulas. The workbook is built in memory; prefer csv for very large exports. Queued exports use this handler too and buffer the whole result set as well, so the same memory caveat applies there.
 
 **Options:**
 - `include_headers` (boolean) - Default: true
