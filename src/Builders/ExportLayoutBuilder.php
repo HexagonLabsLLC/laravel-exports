@@ -23,7 +23,7 @@ final class ExportLayoutBuilder
 
     public static function for(string|ExportModel $model): static
     {
-        $builder = new static;
+        $builder = new self;
         $builder->exportModel = $model instanceof ExportModel
             ? $model
             : app(SchemaSync::class)->ensureFresh($model);
