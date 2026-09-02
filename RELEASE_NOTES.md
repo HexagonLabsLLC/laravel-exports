@@ -1,104 +1,11 @@
-# Unreleased (feat/xlsx-queued-exports)
+# v1.0.0
 
-## Features
-
-- **Queued exports run any registered format.** `ProcessExportJob` keeps its
-  chunked writers for `csv` and `json` (flat memory), and hands every other
-  format - `xlsx` and anything added with `ExportFactory::register()` - to its
-  handler. `queueExport()`'s `$options` are passed through to that handler
-  (`sheet_by`, `sheet_title`, `include_headers`) and the stored file is named
-  from the handler's `getExtension()`. Handler-backed formats buffer the whole
-  result set in memory, so csv stays the recommendation for very large
-  exports. An unregistered format still fails the job, now with the factory's
-  "Unsupported export format" message, and a handler that returns something
-  other than a string from `export()` fails with a clear reason.
-  
-# v1.0.0-rc.7 (feat/pivot-group-buckets)
-
-Pivot grouping learns per-entry date buckets.
-
-## Features
-
-- **Per-entry pivot group formats**: `group_by` and `sub_group_by` entries may
-  now be arrays - `['path' => 'created_at', 'format' => 'month', 'header' =>
-  'Month']` - so relation paths (`customer.name`) mix freely with date buckets
-  in one grouping. The entry `header` beats the indexed
-  `group_by_headers`/`sub_group_by_headers` fallback.
-- **Date buckets** `day`, `week` (ISO; `week_year` kept as an alias), `month`,
-  `quarter`, and `year`, with driver-aware SQL for mysql, sqlite, and pgsql
-  (previously `week_year` was the only format and mysql-only). The global
-  `group_by_format` still applies to string `group_by` entries and now accepts
-  any bucket. `week_start => 'sunday'` stays mysql-only (YEARWEEK mode 0) and
-  throws elsewhere instead of silently numbering weeks differently.
-- **Validation**: `export:validate` reports `unknown_group_format`,
-  `missing_group_path`, and `unknown_week_start` for pivot group entries.
-
-# v1.0.0-rc.6 (feat/lazy-catalog-builders)
-
-The export catalog becomes a lazily self-syncing cache, and layouts gain
-fluent builders plus row-carried filter/sort definitions.
-
-## Features
-
-- **Layout validation** via a new read-only `LayoutValidator` (never writes,
-  never lazy-syncs): `validate($layout)` works on persisted and unsaved
-  layouts, `validateDraft($payload)` spot-checks raw UI form data before
-  anything is saved, `ExportLayoutBuilder::validate()` checks staged layouts,
-  and `save()` now reports every error at once instead of dying on the first.
-  `php artisan export:validate` audits all layouts with a CI-friendly
-  non-zero exit on errors. Every problem carries a stable `code` + `params`,
-  and messages render through the `laravel-exports::validation` lang
-  namespace - publish the `lang` tag to override wording with client-friendly
-  text or add locales for multilingual apps.
-- **Lazy catalog sync** (`laravel-exports.schema_sync`, default `lazy`): models
-  and relation paths sync into export_models/export_model_relations the first
-  time a layout references them - `export:import-models` is now optional.
-  `verify` mode also re-syncs when a model's reflected schema fingerprint
-  (new `export_models.schema_hash`) drifts; `manual` restores the old
-  never-write behavior and throws helpful errors for missing entries.
-- **Model-class layouts**: `export_layouts.model` (nullable FQCN) can replace
-  `export_model_id` (now nullable; exactly one required, `model` wins). A
-  layout inserted with just a class name runs with zero catalog setup.
-- **`filter_definitions` / `sort_definitions`** JSON on export_layouts: with
-  `column_definitions`, one INSERT is a complete runnable export. Paths
-  resolve against the (self-syncing) catalog; dotted attribute paths ride the
-  smart relation filter parsing; request filters match path-derived keys.
-- **`ExportLayoutBuilder`**: fluent, transactional construction of
-  catalog-backed layouts (`for(Post::class)->column(...)->filter(...)
-  ->sort(...)->save()`), with `SchemaSync::describe()` as the UI schema
-  endpoint.
-- **`SchemaSync` service** extracted from ImportModelsCommand: one shared,
-  race-safe write path for the whole catalog (a new unique index on
-  export_model_relations backs the upserts; the migration de-duplicates
-  existing rows first).
-
-## Behavior changes
-
-- **`or` filters now group with the preceding filter**: `A, or B, C` builds
-  `(A OR B) AND C` instead of the flat `A OR B AND C` SQL precedence, so an
-  or-pair can no longer disjoin an unrelated scoping filter. Put a scoping
-  filter after the or-group to keep it ANDed.
-- **Filter application order is now deterministic** (creation order via
-  ordered-uuid `orderBy('id')`); previously it followed database index order,
-  which could silently move an `or` filter's placement.
-- **Column filters coerce comma-separated request strings** into arrays for
-  `in`/`not_in`/`between`, matching layout filters; `'120,30'` and
-  `['120','30']` now behave identically.
-- Referenced nested paths are no longer ad-hoc INSERTed during exports in all
-  cases: they sync through SchemaSync under `lazy`/`verify` and are left
-  alone (in-memory validation only) under `manual`.
-- The lazy-sync migration alters export_layouts (`export_model_id` nullable)
-  and adds a unique index; on dirty catalogs the de-duplication step removes
-  duplicate relation rows (oldest kept). SQLite rebuilds the table on the
-  nullable change.
-- Apps routing reads to database replicas should set `schema_sync=manual`
-  (runtime writes otherwise occur on catalog misses).
-
-# v1.0.0-rc.5
-
-Correctness, performance, and Laravel 13 readiness release over rc.4, driven by
-a full codebase audit. Includes one new migration and several removals of dead
-or broken public surface.
+The first stable release. Consolidates everything since the published
+v1.0.0-rc.6 tag: a full codebase audit, Laravel 13 support, the lazily
+self-syncing catalog with fluent builders and validation, xlsx and queued
+exports for every registered format, and per-entry pivot date buckets.
+(Earlier drafts of these notes numbered this work rc.5 through rc.7; none of
+those shipped under that numbering.)
 
 ## Breaking / behavior changes
 
@@ -111,6 +18,16 @@ or broken public surface.
   `relation()` aliases on `ExportColumn`/`ExportFilter` (use `modelRelation()`).
 - **Removed unread config:** the seven `export_*` model/table blocks in
   `config/laravel-exports.php` were never consulted by any code.
+- **`or` filters now group with the preceding filter**: `A, or B, C` builds
+  `(A OR B) AND C` instead of the flat `A OR B AND C` SQL precedence, so an
+  or-pair can no longer disjoin an unrelated scoping filter. Put a scoping
+  filter after the or-group to keep it ANDed.
+- **Filter application order is now deterministic** (creation order via
+  ordered-uuid `orderBy('id')`); previously it followed database index order,
+  which could silently move an `or` filter's placement.
+- **Column filters coerce comma-separated request strings** into arrays for
+  `in`/`not_in`/`between`, matching layout filters; `'120,30'` and
+  `['120','30']` now behave identically.
 - **`omit_on_empty` no longer drops the column key**; it emits an empty string
   so CSV rows stay aligned with their headers, and `0` is no longer treated as
   empty.
@@ -119,31 +36,52 @@ or broken public surface.
   handler option.
 - **JSON exports with `include_meta` always wrap rows in a `data` key** (the
   old meta-without-wrapper combination produced invalid JSON).
-- **Queued exports throw for formats other than csv/json** instead of writing
-  an empty file marked completed.
 - **Per-row `APP_DEBUG` logging was removed** from the export pipeline; use
   `getQuery()` to inspect the built query. Errors and warnings are still
   logged.
+- Referenced nested paths are no longer ad-hoc INSERTed during exports in all
+  cases: they sync through SchemaSync under `lazy`/`verify` and are left
+  alone (in-memory validation only) under `manual`.
+- Apps routing reads to database replicas should set `schema_sync=manual`
+  (runtime writes otherwise occur on catalog misses).
 
 ## Features
 
-- **Column `format` templates**: a nullable `format` field on export_columns
-  wraps each cell's final value with a `{value}` template (`Site {value}` ->
-  `Site Customer Ltd.`). Applied after aggregation, functions, and defaults;
-  skipped for empty values; bypassed by request overrides.
-- **Dynamic column expansion**: `is_expanded` + `expansion_data.header_path`
-  on a collection-relation column now generate one column per distinct related
-  value across the dataset (alphabetical, rectangular rows), with `format`
-  templating the generated titles and the column's own value_path/aggregator/
-  default driving each cell. Chunked, streamed, queued, and paginated exports
-  throw for expanded columns (full dataset required).
-- **Database-driven columns via `export_layouts.column_definitions`** (json,
-  nullable): a layout row can carry its own column definitions, so layouts
-  inserted purely through the database need no `export_columns` rows and no
-  seeding code. Definitions use the same shapes as `addColumns()` (including
-  `relation` resolution) and are merged with persisted columns by position at
-  export time. Request `defaults`/`overrides` cannot target them (no UUIDs);
-  use the definition's `default`.
+- **Lazy catalog sync** (`laravel-exports.schema_sync`, default `lazy`): models
+  and relation paths sync into export_models/export_model_relations the first
+  time a layout references them - `export:import-models` is now optional.
+  `verify` mode also re-syncs when a model's reflected schema fingerprint
+  (new `export_models.schema_hash`) drifts; `manual` restores the old
+  never-write behavior and throws helpful errors for missing entries.
+- **`ExportLayoutBuilder`**: fluent, transactional construction of
+  catalog-backed layouts (`for(Post::class)->column(...)->filter(...)
+  ->sort(...)->save()`), with `SchemaSync::describe()` as the UI schema
+  endpoint and a `SchemaSync` service extracted from ImportModelsCommand as
+  one shared, race-safe write path for the whole catalog (a new unique index
+  on export_model_relations backs the upserts; the migration de-duplicates
+  existing rows first).
+- **Layout validation** via a new read-only `LayoutValidator` (never writes,
+  never lazy-syncs): `validate($layout)` works on persisted and unsaved
+  layouts, `validateDraft($payload)` spot-checks raw UI form data before
+  anything is saved, `ExportLayoutBuilder::validate()` checks staged layouts,
+  and `save()` reports every error at once instead of dying on the first.
+  `php artisan export:validate` audits all layouts with a CI-friendly
+  non-zero exit on errors. Every problem carries a stable `code` + `params`,
+  and messages render through the `laravel-exports::validation` lang
+  namespace - publish the `lang` tag to override wording with client-friendly
+  text or add locales for multilingual apps.
+- **Model-class layouts**: `export_layouts.model` (nullable FQCN) can replace
+  `export_model_id` (now nullable; exactly one required, `model` wins). A
+  layout inserted with just a class name runs with zero catalog setup.
+- **Database-driven layouts via row-carried JSON definitions**:
+  `column_definitions`, `filter_definitions`, and `sort_definitions` on
+  export_layouts make one INSERT a complete runnable export. Column entries
+  use the same shapes as `addColumns()` (including `relation` resolution) and
+  merge with persisted columns by position; filter/sort paths resolve against
+  the (self-syncing) catalog, dotted attribute paths ride the smart relation
+  filter parsing, and request filters match path-derived keys. Request
+  `defaults`/`overrides` cannot target defined columns (no UUIDs); use the
+  definition's `default`.
 - **`ExportLayout::addColumns()`** bulk-creates columns from one array:
   `'Title' => 'value.path'` shorthand, `'Title' => [attributes]`, or list-style
   attribute arrays. Positions auto-increment past the current max, and a
@@ -158,7 +96,39 @@ or broken public surface.
   rows into one sheet per distinct column value (also when streaming), and the
   handler accepts a string-keyed set of row collections for one sheet per key.
   Sheet titles are sanitized to Excel's rules (31 chars, no `[]:*?/\`, unique).
-  Queued exports remain csv/json only.
+- **Queued exports run any registered format.** `ProcessExportJob` keeps its
+  chunked writers for `csv` and `json` (flat memory), and hands every other
+  format - `xlsx` and anything added with `ExportFactory::register()` - to its
+  handler. `queueExport()`'s `$options` are passed through to that handler
+  (`sheet_by`, `sheet_title`, `include_headers`) and the stored file is named
+  from the handler's `getExtension()`. Handler-backed formats buffer the whole
+  result set in memory, so csv stays the recommendation for very large
+  exports. An unregistered format fails the job with the factory's
+  "Unsupported export format" message (previously an empty file was written
+  and marked completed), and a handler that returns something other than a
+  string from `export()` fails with a clear reason.
+- **Column `format` templates**: a nullable `format` field on export_columns
+  wraps each cell's final value with a `{value}` template (`Site {value}` ->
+  `Site Customer Ltd.`). Applied after aggregation, functions, and defaults;
+  skipped for empty values; bypassed by request overrides.
+- **Dynamic column expansion**: `is_expanded` + `expansion_data.header_path`
+  on a collection-relation column now generate one column per distinct related
+  value across the dataset (alphabetical, rectangular rows), with `format`
+  templating the generated titles and the column's own value_path/aggregator/
+  default driving each cell. Chunked, streamed, queued, and paginated exports
+  throw for expanded columns (full dataset required).
+- **Per-entry pivot group formats**: `group_by` and `sub_group_by` entries may
+  now be arrays - `['path' => 'created_at', 'format' => 'month', 'header' =>
+  'Month']` - so relation paths (`customer.name`) mix freely with date buckets
+  in one grouping. The entry `header` beats the indexed
+  `group_by_headers`/`sub_group_by_headers` fallback. Buckets: `day`, `week`
+  (ISO; `week_year` kept as an alias), `month`, `quarter`, and `year`, with
+  driver-aware SQL for mysql, sqlite, and pgsql (previously `week_year` was
+  the only format and mysql-only). The global `group_by_format` still applies
+  to string `group_by` entries and now accepts any bucket. `week_start =>
+  'sunday'` stays mysql-only (YEARWEEK mode 0) and throws elsewhere instead
+  of silently numbering weeks differently. `export:validate` reports
+  `unknown_group_format`, `missing_group_path`, and `unknown_week_start`.
 
 ## Fixes
 
@@ -195,6 +165,8 @@ or broken public surface.
   MySQL's enum column stores now triggers OR grouping.
 - Pivot `value_relation` set to an empty string now cleanly means the base
   table; `--deep-level` is clamped to the documented 1-5 range.
+- `export:import-models --filter` actually filters (it was parsed and logged
+  but never applied).
 
 ## Performance
 
@@ -206,18 +178,34 @@ or broken public surface.
 
 ## Tooling
 
+- GitHub Actions CI: Pint, PHPStan, and the Pest suite across PHP 8.2-8.4 and
+  Laravel 12/13, plus a MySQL job exercising the driver-specific pivot SQL.
 - `phpstan.neon.dist` at level 5, passing clean; models carry full `@property`
   docblocks for IDE support.
 - `pint.json` enforces `!$var` and `(bool)$var` spacing.
-- Test suite: 95 tests, 343 assertions, including first coverage of the pivot
-  export path.
+- Test suite: 180 tests, 697 assertions, including documentation snippet
+  parse/resolve checks and first coverage of the pivot export path.
+- The Claude Code skill ships with the package at `.skill/laravel-exports/`
+  (copy it into a project's `.claude/skills/` to use it).
 
 ## Upgrade notes
 
-Run migrations (`php artisan migrate`) for the new columns. If downstream code
-called `ExportInspector`, `relation()` on columns/filters, or read the removed
-config blocks, update as noted above. If any consumer depended on
-`omit_on_empty` removing keys from JSON output, that behavior is gone.
+Run migrations (`php artisan migrate`) for the new columns; the lazy-sync
+migration alters export_layouts (`export_model_id` nullable) and adds a unique
+index, de-duplicating existing relation rows first (oldest kept; SQLite
+rebuilds the table on the nullable change). If downstream code called
+`ExportInspector`, `relation()` on columns/filters, or read the removed config
+blocks, update as noted above. If any consumer depended on `omit_on_empty`
+removing keys from JSON output, that behavior is gone.
+
+# v1.0.0-rc.6
+
+Raises the illuminate/support and illuminate/contracts constraints ahead of
+the Laravel 13 upgrade. No code changes over rc.5.
+
+# v1.0.0-rc.5
+
+Re-tag of rc.4 (same commit).
 
 # v1.0.0-rc.4
 
