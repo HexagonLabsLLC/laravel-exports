@@ -1048,7 +1048,7 @@ it('rolls back the whole builder save on invalid paths', function () {
         ->column('Good', 'title')
         ->column('Bad', ['relation' => 'not_real'])
         ->save())
-        ->toThrow(InvalidArgumentException::class, "Relation 'not_real'");
+        ->toThrow(InvalidArgumentException::class, "'not_real' does not resolve");
 
     expect(ExportLayout::where('name', 'broken_report')->exists())->toBeFalse();
 });

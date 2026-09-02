@@ -6,6 +6,7 @@ use HexagonLabsLLC\LaravelExports\Models\ExportFilter;
 use HexagonLabsLLC\LaravelExports\Models\ExportLayout;
 use HexagonLabsLLC\LaravelExports\Models\ExportModel;
 use HexagonLabsLLC\LaravelExports\Models\ExportSort;
+use HexagonLabsLLC\LaravelExports\Services\LayoutValidator;
 use HexagonLabsLLC\LaravelExports\Services\SchemaSync;
 use Illuminate\Support\Facades\DB;
 
@@ -83,12 +84,35 @@ final class ExportLayoutBuilder
     }
 
     /**
+     * Spot-check the staged layout without saving anything: assembles an
+     * unsaved ExportLayout carrying the staged data as definitions and runs
+     * the LayoutValidator over it.
+     */
+    public function validate(): array
+    {
+        return app(LayoutValidator::class)->validate(new ExportLayout($this->attributes + [
+            'export_model_id' => $this->exportModel->id,
+            'column_definitions' => $this->columns,
+            'filter_definitions' => $this->filters,
+            'sort_definitions' => $this->sorts,
+        ]));
+    }
+
+    /**
      * Persist the layout with catalog-backed columns, filters, and sorts.
-     * Paths resolve (and lazy-sync) inside the transaction, so an invalid
-     * path rolls everything back.
+     * Validation runs first and reports every error at once; paths resolve
+     * (and lazy-sync) inside the transaction as a backstop.
      */
     public function save(): ExportLayout
     {
+        $errors = array_filter($this->validate(), fn ($problem) => $problem['severity'] === 'error');
+
+        if ($errors !== []) {
+            throw new \InvalidArgumentException(
+                "Layout is not valid:\n".implode("\n", array_column($errors, 'message'))
+            );
+        }
+
         return DB::transaction(function () {
             $layout = ExportLayout::create($this->attributes + ['export_model_id' => $this->exportModel->id]);
 

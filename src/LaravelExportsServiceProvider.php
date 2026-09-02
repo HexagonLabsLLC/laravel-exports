@@ -4,6 +4,7 @@ namespace HexagonLabsLLC\LaravelExports;
 
 use HexagonLabsLLC\LaravelExports\Helpers\ModelRelationInspector;
 use HexagonLabsLLC\LaravelExports\Services\DynamicExportService;
+use HexagonLabsLLC\LaravelExports\Services\LayoutValidator;
 use HexagonLabsLLC\LaravelExports\Services\SchemaSync;
 use Illuminate\Support\ServiceProvider;
 
@@ -15,6 +16,7 @@ class LaravelExportsServiceProvider extends ServiceProvider
 
         $this->app->singleton(ModelRelationInspector::class);
         $this->app->singleton(SchemaSync::class);
+        $this->app->singleton(LayoutValidator::class);
 
         $this->app->singleton(DynamicExportService::class, function ($app) {
             return new DynamicExportService(
@@ -30,9 +32,15 @@ class LaravelExportsServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->loadTranslationsFrom(__DIR__.'/../lang', 'laravel-exports');
+
         $this->publishes([
             __DIR__.'/../config/laravel-exports.php' => config_path('laravel-exports.php'),
         ], 'config');
+
+        $this->publishes([
+            __DIR__.'/../lang' => $this->app->langPath('vendor/laravel-exports'),
+        ], 'lang');
 
         $this->publishesMigrations([
             __DIR__.'/../database/migrations/' => database_path('migrations'),
@@ -42,6 +50,7 @@ class LaravelExportsServiceProvider extends ServiceProvider
             $this->commands([
                 Console\Commands\ImportModelsCommand::class,
                 Console\Commands\SeedTransformationFunctionsCommand::class,
+                Console\Commands\ValidateLayoutsCommand::class,
             ]);
         }
     }
