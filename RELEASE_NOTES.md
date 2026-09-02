@@ -36,6 +36,10 @@ or broken public surface.
   `require`); the handler throws with install instructions when the package is
   absent, so nothing changes for users who never export xlsx. String cells are
   written with an explicit string type so data cannot execute as formulas.
+  Multi-sheet workbooks are supported two ways: the `sheet_by` option splits
+  rows into one sheet per distinct column value (also when streaming), and the
+  handler accepts a string-keyed set of row collections for one sheet per key.
+  Sheet titles are sanitized to Excel's rules (31 chars, no `[]:*?/\`, unique).
   Queued exports remain csv/json only.
 
 ## Fixes

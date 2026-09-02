@@ -29,24 +29,87 @@ class XlsxExportHandler extends ExportHandler
     {
         return [
             'include_headers' => true,
+            'sheet_by' => null,
+            'sheet_title' => null,
         ];
     }
 
     public function export(Collection $data): string
     {
         $spreadsheet = new Spreadsheet;
-        $sheet = $spreadsheet->getActiveSheet();
-        $rowIndex = 1;
+        $usedTitles = [];
+        $isFirstSheet = true;
 
-        if ($this->options['include_headers'] && $data->isNotEmpty()) {
-            $this->writeRow($sheet, array_keys($data->first()), $rowIndex++);
-        }
+        foreach ($this->toSheets($data) as $title => $rows) {
+            $sheet = $isFirstSheet ? $spreadsheet->getActiveSheet() : $spreadsheet->createSheet();
+            $sheet->setTitle($this->sanitizeSheetTitle((string)$title, $usedTitles));
+            $isFirstSheet = false;
 
-        foreach ($data as $row) {
-            $this->writeRow($sheet, array_values($row), $rowIndex++);
+            $rows = collect($rows);
+            $rowIndex = 1;
+
+            if ($this->options['include_headers'] && $rows->isNotEmpty()) {
+                $this->writeRow($sheet, array_keys($rows->first()), $rowIndex++);
+            }
+
+            foreach ($rows as $row) {
+                $this->writeRow($sheet, array_values($row), $rowIndex++);
+            }
         }
 
         return $this->toXlsxString($spreadsheet);
+    }
+
+    /**
+     * Normalize export data into [sheet title => rows].
+     *
+     * Three shapes are supported:
+     * - a string-keyed collection of row sets exports one sheet per key
+     *   (e.g. collect(['Users' => $userRows, 'Orders' => $orderRows]))
+     * - the sheet_by option splits a flat row collection into sheets by
+     *   that column's value
+     * - anything else exports a single sheet
+     */
+    protected function toSheets(Collection $data): array
+    {
+        if ($data->isNotEmpty()
+            && $data->keys()->every(fn ($key) => is_string($key))
+            && $data->every(fn ($rows) => is_iterable($rows))) {
+            return $data->all();
+        }
+
+        if ($this->options['sheet_by']) {
+            $sheetBy = $this->options['sheet_by'];
+
+            return $data->groupBy(fn ($row) => (string)($row[$sheetBy] ?? ''))->all();
+        }
+
+        return [$this->defaultSheetTitle() => $data];
+    }
+
+    protected function defaultSheetTitle(): string
+    {
+        return $this->options['sheet_title'] ?: $this->layout->title ?: $this->layout->name ?: 'Export';
+    }
+
+    /**
+     * Excel sheet titles cannot contain []:*?/\, are capped at 31 characters,
+     * must be non-blank, and must be unique case-insensitively.
+     */
+    protected function sanitizeSheetTitle(string $title, array &$usedTitles): string
+    {
+        $title = trim(str_replace(['[', ']', ':', '*', '?', '/', '\\'], ' ', $title)) ?: 'Sheet';
+        $title = mb_substr($title, 0, 31);
+
+        $candidate = $title;
+        for ($i = 2; isset($usedTitles[mb_strtolower($candidate)]); $i++) {
+            $suffix = ' ('.$i.')';
+            $candidate = mb_substr($title, 0, 31 - mb_strlen($suffix)).$suffix;
+        }
+
+        $usedTitles[mb_strtolower($candidate)] = true;
+
+        return $candidate;
     }
 
     public function download(mixed $export, string $filename): Response
@@ -74,20 +137,35 @@ class XlsxExportHandler extends ExportHandler
             // PhpSpreadsheet holds the whole workbook in memory; chunking only
             // bounds query memory. Prefer csv for very large exports.
             $spreadsheet = new Spreadsheet;
-            $sheet = $spreadsheet->getActiveSheet();
-            $rowIndex = 1;
-            $isFirstChunk = true;
+            $sheetBy = $this->options['sheet_by'];
+            $usedTitles = [];
+            $sheets = [];
 
-            $dataCallback(function (Collection $chunk) use ($sheet, &$rowIndex, &$isFirstChunk) {
-                if ($isFirstChunk && $this->options['include_headers'] && $chunk->isNotEmpty()) {
-                    $this->writeRow($sheet, array_keys($chunk->first()), $rowIndex++);
-                }
-                $isFirstChunk = false;
-
+            $dataCallback(function (Collection $chunk) use ($spreadsheet, $sheetBy, &$sheets, &$usedTitles) {
                 foreach ($chunk as $row) {
-                    $this->writeRow($sheet, array_values($row), $rowIndex++);
+                    $key = $sheetBy ? (string)($row[$sheetBy] ?? '') : $this->defaultSheetTitle();
+
+                    if (!isset($sheets[$key])) {
+                        $sheet = $sheets === [] ? $spreadsheet->getActiveSheet() : $spreadsheet->createSheet();
+                        $sheet->setTitle($this->sanitizeSheetTitle($key, $usedTitles));
+
+                        $rowIndex = 1;
+                        if ($this->options['include_headers']) {
+                            $this->writeRow($sheet, array_keys($row), $rowIndex++);
+                        }
+
+                        $sheets[$key] = ['sheet' => $sheet, 'row' => $rowIndex];
+                    }
+
+                    $this->writeRow($sheets[$key]['sheet'], array_values($row), $sheets[$key]['row']++);
                 }
             });
+
+            if ($sheets === []) {
+                $spreadsheet->getActiveSheet()->setTitle(
+                    $this->sanitizeSheetTitle($this->defaultSheetTitle(), $usedTitles)
+                );
+            }
 
             (new Xlsx($spreadsheet))->save('php://output');
             $spreadsheet->disconnectWorksheets();

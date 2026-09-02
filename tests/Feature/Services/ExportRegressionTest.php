@@ -1,5 +1,6 @@
 <?php
 
+use HexagonLabsLLC\LaravelExports\Exports\ExportFactory;
 use HexagonLabsLLC\LaravelExports\Models\ExportColumn;
 use HexagonLabsLLC\LaravelExports\Models\ExportFilter;
 use HexagonLabsLLC\LaravelExports\Models\ExportFunction;
@@ -369,6 +370,72 @@ it('exports xlsx with formula-safe string cells', function () {
         ->and($sheet->getCell('A2')->getValue())->toBe('John Doe')
         ->and($sheet->getCell('A5')->getValue())->toBe('=2+2')
         ->and($sheet->getCell('A5')->getDataType())->toBe(DataType::TYPE_STRING);
+});
+
+it('splits xlsx exports into sheets by column value', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->postExportModel->id,
+        'name' => 'Sheeted Export',
+    ]);
+
+    ExportColumn::create([
+        'export_layout_id' => $layout->id,
+        'title' => 'Author',
+        'value_path' => 'user.name',
+        'position' => 1,
+    ]);
+
+    ExportColumn::create([
+        'export_layout_id' => $layout->id,
+        'title' => 'Title',
+        'value_path' => 'title',
+        'position' => 2,
+    ]);
+
+    $xlsx = $this->service->exportTo($layout->id, 'xlsx', [], ['sheet_by' => 'Author']);
+
+    $tmp = tempnam(sys_get_temp_dir(), 'lex').'.xlsx';
+    file_put_contents($tmp, $xlsx);
+    $spreadsheet = IOFactory::load($tmp);
+    unlink($tmp);
+
+    expect($spreadsheet->getSheetNames())->toBe(['John Doe', 'Jane Smith']);
+
+    $john = $spreadsheet->getSheetByName('John Doe');
+    $jane = $spreadsheet->getSheetByName('Jane Smith');
+
+    expect($john->getCell('B1')->getValue())->toBe('Title')
+        ->and($john->getCell('B2')->getValue())->toBe('First Post')
+        ->and($john->getCell('B3')->getValue())->toBe('Second Post')
+        ->and($jane->getCell('B2')->getValue())->toBe('Third Post');
+});
+
+it('exports one xlsx sheet per key with sanitized titles', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->userExportModel->id,
+        'name' => 'Multi Sheet Export',
+    ]);
+
+    $handler = ExportFactory::create('xlsx', $layout);
+
+    $longTitle = str_repeat('Quarterly Numbers ', 3);
+    $xlsx = $handler->export(collect([
+        'Summary [2026/Q1]' => [['Metric' => 'Total', 'Value' => 10]],
+        $longTitle.'A' => [['Metric' => 'A', 'Value' => 1]],
+        $longTitle.'B' => [['Metric' => 'B', 'Value' => 2]],
+    ]));
+
+    $tmp = tempnam(sys_get_temp_dir(), 'lex').'.xlsx';
+    file_put_contents($tmp, $xlsx);
+    $spreadsheet = IOFactory::load($tmp);
+    unlink($tmp);
+
+    expect($spreadsheet->getSheetNames())->toBe([
+        'Summary  2026 Q1',
+        'Quarterly Numbers Quarterly Num',
+        'Quarterly Numbers Quarterly (2)',
+    ])
+        ->and($spreadsheet->getSheetByName('Summary  2026 Q1')->getCell('B2')->getValue())->toBe(10);
 });
 
 it('neutralizes formula injection in csv output', function () {

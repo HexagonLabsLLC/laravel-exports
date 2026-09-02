@@ -490,6 +490,24 @@ Requires the optional `phpoffice/phpspreadsheet` package (`composer require phpo
 
 **Options:**
 - `include_headers` (boolean) - Default: true
+- `sheet_title` (string) - Title for the single sheet. Defaults to the layout title, then the layout name.
+- `sheet_by` (string) - Split rows into one sheet per distinct value of this column (matched by column title). Each sheet gets its own header row. Works with `exportTo`, `downloadAs`, `storeAs`, and `streamAs`.
+
+**Multiple sheets:**
+
+```php
+// One sheet per author, titled by the author's name
+$xlsx = $service->exportTo($layout, 'xlsx', [], ['sheet_by' => 'Author']);
+
+// Or pass a string-keyed set of row collections directly to the handler
+$handler = ExportFactory::create('xlsx', $layout);
+$xlsx = $handler->export(collect([
+    'Users' => $userRows,
+    'Orders' => $orderRows,
+]));
+```
+
+Sheet titles are sanitized to Excel's rules automatically: the characters `[ ] : * ? / \` are replaced with spaces, titles are capped at 31 characters, blanks become `Sheet`, and duplicates get a ` (2)` style suffix.
 
 ---
 
