@@ -28,4 +28,7 @@ return [
     'unknown_pivot_aggregation' => "Pivot aggregation ':aggregation' is not supported",
     'unknown_output_format' => "Pivot output format ':format' is not supported",
     'unknown_pivot_path' => "Pivot path ':path' does not resolve on :model",
+    'missing_group_path' => 'Pivot group entry is missing its path',
+    'unknown_group_format' => "Date bucket ':format' is not supported (day, week, month, quarter, year)",
+    'unknown_week_start' => "Week start ':week_start' is not supported; use monday or sunday",
 ];

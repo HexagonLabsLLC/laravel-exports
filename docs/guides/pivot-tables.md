@@ -2,6 +2,9 @@
 
 Export pivot attributes from BelongsToMany relationships.
 
+Looking for crosstab reports (rows aggregated into dynamic columns)? That is
+the other pivot feature - see [Pivot Reports](pivot-reports.md).
+
 ## Overview
 
 When you have a many-to-many relationship with pivot data:
