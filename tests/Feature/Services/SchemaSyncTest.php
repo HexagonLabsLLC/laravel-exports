@@ -83,10 +83,56 @@ it('syncs referenced nested and dotted column paths', function () {
 
     expect($nested->relation)->toBe('tags.category')
         ->and($nested->is_column)->toBeFalse()
+        ->and($nested->is_collection)->toBeFalse()
+        ->and($sync->syncPath($model, 'user.posts')->is_collection)->toBeTrue()
         ->and($columnPath->relation)->toBe('user.name')
         ->and($columnPath->is_column)->toBeTrue()
         ->and($sync->syncPath($model, 'nope.nothing'))->toBeNull()
         ->and($sync->syncColumnPath($model, 'user.not_a_column'))->toBeNull();
+});
+
+it('verify mode trusts a matching schema hash', function () {
+    config()->set('laravel-exports.schema_sync', 'verify');
+
+    (new SchemaSync(app(ModelRelationInspector::class)))->syncModel(Post::class);
+    ExportModelRelation::where('relation', 'tags')->where('is_column', false)->delete();
+
+    $refreshed = (new SchemaSync(app(ModelRelationInspector::class)))->ensureFresh(Post::class);
+
+    expect($refreshed->relations()->where('relation', 'tags')->exists())->toBeFalse();
+});
+
+it('syncs at most once per instance via syncOnce', function () {
+    $sync = new SchemaSync(app(ModelRelationInspector::class));
+
+    $first = $sync->syncOnce(Post::class);
+    ExportModelRelation::where('relation', 'tags')->where('is_column', false)->delete();
+
+    $again = $sync->syncOnce(Post::class);
+
+    expect($again->id)->toBe($first->id)
+        ->and(ExportModelRelation::where('relation', 'tags')->where('is_column', false)->exists())->toBeFalse();
+
+    (new SchemaSync(app(ModelRelationInspector::class)))->syncOnce(Post::class);
+
+    expect(ExportModelRelation::where('relation', 'tags')->where('is_column', false)->exists())->toBeTrue();
+});
+
+it('upgrades stub catalog rows when describing them', function () {
+    $sync = new SchemaSync(app(ModelRelationInspector::class));
+    $sync->syncModel(Post::class);
+
+    $stub = ExportModel::where('model', Tag::class)->first();
+
+    expect($stub->schema_hash)->toBeNull()
+        ->and($stub->relations()->count())->toBe(0);
+
+    $described = $sync->describe(Tag::class);
+
+    expect($described['columns']->pluck('relation')->all())->toContain('value', 'post_id', 'category_id')
+        ->and($described['relations']->pluck('relation')->all())->toContain('post', 'category')
+        ->and($described['model']->schema_hash)->not->toBeNull()
+        ->and($described['model']->id)->toBe($stub->id);
 });
 
 it('describes a model for ui consumption', function () {
