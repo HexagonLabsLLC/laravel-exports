@@ -194,6 +194,27 @@ it('honors the operator in relation filter configs on collections', function () 
         ->and($result[2]['Non Tech Value'])->toBe('30');
 });
 
+it('stores column definition shorthand as an ordered list', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->postExportModel->id,
+        'name' => 'Ordered Definitions',
+        'column_definitions' => [
+            'Author' => 'user.name',
+            'Title' => 'title',
+        ],
+    ]);
+
+    $stored = $layout->fresh()->column_definitions;
+
+    // A JSON array survives MySQL's object key reordering; a JSON object does not
+    expect(array_is_list($stored))->toBeTrue()
+        ->and(array_column($stored, 'title'))->toBe(['Author', 'Title']);
+
+    $result = $this->service->executeExport($layout->id)->toArray();
+
+    expect(array_keys($result[0]))->toBe(['Author', 'Title']);
+});
+
 it('executes pivot exports with a joined value relation', function () {
     $layout = ExportLayout::create([
         'export_model_id' => $this->postExportModel->id,
