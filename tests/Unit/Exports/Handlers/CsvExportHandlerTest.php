@@ -103,3 +103,31 @@ it('handles boolean values', function () {
 
     expect($result)->toContain('John,1,');
 });
+
+it('writes the bom before content and composes with disabled headers', function () {
+    $layout = new ExportLayout(['title' => 'Test Layout']);
+    $handler = new CsvExportHandler($layout, ['bom' => true, 'include_headers' => false]);
+
+    $result = $handler->export(Collection::make([['name' => 'John Doe']]));
+
+    expect($result)->toBe("\xEF\xBB\xBF\"John Doe\"\n");
+});
+
+it('lets formula escaping be disabled', function () {
+    $layout = new ExportLayout(['title' => 'Test Layout']);
+    $handler = new CsvExportHandler($layout, ['escape_formulas' => false]);
+
+    $result = $handler->export(Collection::make([['v' => '=SUM(A1)']]));
+
+    expect($result)->toContain('=SUM(A1)')
+        ->and($result)->not->toContain("'=SUM(A1)");
+});
+
+it('escapes leading dashes by default', function () {
+    $layout = new ExportLayout(['title' => 'Test Layout']);
+    $handler = new CsvExportHandler($layout);
+
+    $result = $handler->export(Collection::make([['v' => '-5 apples']]));
+
+    expect($result)->toContain("'-5 apples");
+});

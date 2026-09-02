@@ -14,6 +14,10 @@ Aggregations process collection values to produce a single result. Use them when
 | `first` | First item | Mixed |
 | `last` | Last item | Mixed |
 
+`average` is accepted as an alias of `avg` by the service and the validator, but the
+`export_columns.aggregator` enum does not include it - so it only works from a layout's
+`column_definitions`.
+
 ## Basic Usage
 
 ```php
@@ -206,7 +210,7 @@ ExportColumn::create([
     'value_path' => 'orders.total',
     'aggregator' => 'sum',
     'export_function_id' => $formatCurrency->id,
-    'export_function_values' => json_encode(['USD', 'en_US']),
+    'export_function_values' => [null, 'USD', 'en_US'],
     'position' => 1,
 ]);
 ```

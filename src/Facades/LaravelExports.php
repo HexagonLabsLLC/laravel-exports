@@ -2,6 +2,7 @@
 
 namespace HexagonLabsLLC\LaravelExports\Facades;
 
+use HexagonLabsLLC\LaravelExports\Services\DynamicExportService;
 use Illuminate\Support\Facades\Facade;
 
 /**
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static \Illuminate\Http\Response streamAs(\HexagonLabsLLC\LaravelExports\Models\ExportLayout|string $layout, string $format, string $filename, array $requestData = [], array $options = [], int $chunkSize = 1000)
  * @method static array getSupportedFormats()
  *
- * @see \HexagonLabsLLC\LaravelExports\Services\DynamicExportService
+ * @see DynamicExportService
  */
 class LaravelExports extends Facade
 {

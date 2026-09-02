@@ -65,14 +65,14 @@ class ModelRelationInspector
      *       'related_model' => 'App\Models\Contact',
      *       'is_collection' => true,
      *    ],
-     *    // …
+     *    // ...
      *  ]
      *
-     * @return array<string, array{type:string,related_model:string,is_collection:bool}>
+     * @return array<string, array{type:string,related_model:string,is_collection:bool,has_pivot?:bool,pivot_columns?:string[]}>
      */
     public function getModelRelations(string $modelClass): array
     {
-        if (! class_exists($modelClass)) {
+        if (!class_exists($modelClass)) {
             return [];
         }
 
@@ -83,16 +83,16 @@ class ModelRelationInspector
         foreach ($reflection->getMethods() as $method) {
             if (
                 $method->class !== $modelClass ||
-                ! $method->isPublic() ||
+                !$method->isPublic() ||
                 $method->getNumberOfParameters() > 0 ||
                 $method->getName() === '__construct'
             ) {
                 continue;
             }
-            // invoke it “silently”, so no warnings/DEPRECATEDs leak out
+            // invoke it "silently", so no warnings/DEPRECATEDs leak out
             $return = $this->invokeSilently($model, $method);
 
-            if (! $return instanceof Relation) {
+            if (!$return instanceof Relation) {
                 continue;
             }
 
@@ -136,7 +136,7 @@ class ModelRelationInspector
      */
     protected function detectPivotInfo(Relation $relation): array
     {
-        if (! $relation instanceof BelongsToMany) {
+        if (!$relation instanceof BelongsToMany) {
             return ['has_pivot' => false, 'pivot_columns' => [], 'pivot_table' => null];
         }
 
@@ -171,14 +171,14 @@ class ModelRelationInspector
         }
 
         return [
-            'has_pivot' => ! empty($pivotColumns),
+            'has_pivot' => !empty($pivotColumns),
             'pivot_columns' => $pivotColumns,
             'pivot_table' => $pivotTable,
         ];
     }
 
     /**
-     * Invoke a no‑arg method on a model while suppressing
+     * Invoke a no-arg method on a model while suppressing
      * warnings, notices, and deprecated messages.
      */
     protected function invokeSilently(object $model, \ReflectionMethod $method)
@@ -219,8 +219,8 @@ class ModelRelationInspector
     }
 
     /**
-     * Walk a dot‑notation path (e.g. "workOrder.contact") and return
-     * the final relation’s details in the same format as getModelRelations().
+     * Walk a dot-notation path (e.g. "workOrder.contact") and return
+     * the final relation's details in the same format as getModelRelations().
      *
      * @throws \RuntimeException if any segment is not a Relation
      */
@@ -231,14 +231,14 @@ class ModelRelationInspector
         $relation = null;
 
         foreach ($segments as $segment) {
-            if (! method_exists($currentClass, $segment)) {
+            if (!method_exists($currentClass, $segment)) {
                 throw new \RuntimeException("Method {$segment} not found on {$currentClass}");
             }
 
             $model = new $currentClass;
             $result = $model->$segment();
 
-            if (! $result instanceof Relation) {
+            if (!$result instanceof Relation) {
                 throw new \RuntimeException("{$segment} on {$currentClass} is not an Eloquent relation");
             }
 
@@ -286,7 +286,7 @@ class ModelRelationInspector
 
         try {
             foreach ($segments as $index => $segment) {
-                if (! method_exists($currentClass, $segment)) {
+                if (!method_exists($currentClass, $segment)) {
                     return [
                         'valid' => false,
                         'path' => $path,
@@ -325,7 +325,7 @@ class ModelRelationInspector
                     ];
                 }
 
-                if (! $result instanceof Relation) {
+                if (!$result instanceof Relation) {
                     return [
                         'valid' => false,
                         'path' => $path,
@@ -396,7 +396,7 @@ class ModelRelationInspector
      *
      * @return array{
      *     columns: string[],
-     *     relations: array<string, array{type:string,related_model:string,is_collection:bool}>
+     *     relations: array<string, array{type:string,related_model:string,is_collection:bool,has_pivot?:bool,pivot_columns?:string[]}>
      * }
      */
     public function getModelData(string $modelClass): array
@@ -507,7 +507,7 @@ class ModelRelationInspector
      * @return array<
      *   string, array{
      *     columns: string[],
-     *     relations: array<string, array{type:string,related_model:string,is_collection:bool}>
+     *     relations: array<string, array{type:string,related_model:string,is_collection:bool,has_pivot?:bool,pivot_columns?:string[]}>
      *   }
      * >
      */

@@ -1,0 +1,106 @@
+### `export_models`
+- `id` (`UUID`)
+- `title`
+- `model`
+- `schema_hash` (`nullable`|`varchar`)
+	- Fingerprint of the reflected model schema; used by the `verify` schema_sync mode to detect drift
+- INDEX(`model`)
+### `export_model_relations`
+- `id` (`UUID`)
+- `export_model_id` (`export_models`)
+- `title` (`varchar`)
+- `relation` (`varchar`)
+	- Column or relation eloquent function
+- `column` (`nullable`|`varchar`)
+	- Target column for relationship filters
+- `related_model_id` (`nullable`|`export_models`)
+	- Eloquent functions related model
+- `is_column` (`boolean`)
+- `is_collection` (`boolean`)
+- `has_pivot` (`boolean`)
+	- True when the relation is a BelongsToMany with pivot columns
+- `pivot_columns` (`nullable`|`JSON`)
+	- Pivot column names detected on the relation
+- `metadata` (`nullable`|`JSON`)
+	- Extra configuration, e.g. `{"sort_column": "name"}` for related-column sorting
+- INDEX(`export_model_id`, `relation`, `related_model_id`)
+- UNIQUE(`export_model_id`, `relation`, `is_column`)
+	- Makes lazy-sync upserts race safe
+### `export_layouts`
+- `id` (`UUID`)
+- `export_model_id` (`nullable`|`export_models`)
+	- The entry point we'll use for reference
+- `name` (`varchar`)
+- `title` (`nullable`|`varchar`)
+- `description` (`nullable`|`varchar`)
+- `is_pivot` (`boolean`)
+	- True when the layout produces a pivot (crosstab) export
+- `pivot_config` (`nullable`|`JSON`)
+	- Pivot export configuration (group_by, pivot_relation, value_column, aggregation, ...)
+- `column_definitions` (`nullable`|`JSON`)
+	- Column definitions carried by the layout row; built into columns at export time and merged with export_columns by position
+- `filter_definitions` (`nullable`|`JSON`)
+	- Filter definitions carried by the layout row ({path, operator, value, ...}); merged with export_filters at export time
+- `sort_definitions` (`nullable`|`JSON`)
+	- Sort definitions carried by the layout row ({path, direction, priority?, sort_column?}); merged with export_sorts
+- `model` (`nullable`|`varchar`)
+	- Eloquent model FQCN; alternative to export_model_id, lazy-syncs the catalog on first reference. Exactly one of the two is required; model wins when both are set
+- INDEX(`export_model_id`, `name`)
+### `export_filters`
+- `id` (`UUID`)
+- `export_layout_id` (`export_layouts`)
+- `export_model_id` (`nullable`|`export_models`)
+- `export_model_relation_id` (`nullable`|`export_model_relations`)
+- `logical_operator` (`enum[and, or]`)
+- `operator` (`enum['=','!=','>','<','>=','<=','in','not_in','between','like', 'null', 'not_null', 'json_contains', 'relation']`)
+- `value` (`nullable`|`text`|`JSON`)
+	- When null, it'll be assumed that this will be required by request
+- `value_type` (`enum['array','string','integer','boolean','float']`, default `string`)
+	- Only `array` changes runtime behavior (the stored value is JSON-decoded); the rest are descriptive
+- `is_request` (`boolean`)
+- `is_required` (`boolean`)
+- INDEX(`export_layout_id`, `export_model_id`, `export_model_relation_id`)
+### `export_sorts`
+- `id` (`UUID`)
+- `export_layout_id` (`export_layouts.id`)
+- `export_model_id` (`nullable` | `export_models.id`)
+- `export_model_relation_id` (`nullable` | `export_model_relations.id`)
+- `direction` (`enum['asc','desc']`)
+- `priority` (`integer`)
+	- Execution order (1 = first sort, 2 = second, ...)
+- INDEX(`export_layout_id`, `export_model_id`, `export_model_relation_id`, `priority`)
+### `export_functions`
+- `id` (`UUID`)
+- `name` (`varchar`)
+- `callable` (`varchar`)
+- `parameter_count` (`integer`)
+- `value_parameter_index` (`nullable`|`integer`)
+- `metadata` (`nullable`|`JSON`)
+	- This will be the "haystack" for the function
+- `unique(callable)`
+- INDEX(`name`)
+### `export_columns`
+- `id` (`UUID`)
+- `export_layout_id` (`export_layouts`)
+- `export_function_id` (`nullable`|`export_functions`)
+- `export_function_values` (`nullable`|`JSON`)
+	- E.g. `implode`, values: \[',', \['value 1', 'value 2'\]\] :: "value 1,value 2"
+- `export_filter_id` (`nullable`|`export_filters`)
+- `export_filter_values` (`nullable`|`JSON`)
+- `export_model_relation_id` (`nullable`|`export_model_relations`)
+- `aggregator` (`nullable`|`ENUM('sum','avg','min','max','count','first','last')`)
+- `title` (`nullable`|`varchar`)
+- `value_path` (`varchar`)
+	- Dot notation of the relation
+- `default` (`nullable`|`varchar`)
+	- If the result is empty or null, this will be used in its place
+- `format` (`nullable`|`varchar`)
+	- `{value}` output template. Regular column: wraps each cell (`Site {value}`). Expanded column: templates the generated column titles.
+- `position` (`integer`)
+- `is_expanded` (`boolean`)
+	- Expands a collection-relation column into one generated column per distinct related value across the dataset
+- `expansion_data` (`nullable`|`JSON`)
+	- Expansion config: `header_path` (data_get path naming each generated column, default `name`). Pivot layouts use `format_function` here instead.
+- `omit_on_empty` (`boolean`)
+	- Marker only; empty cells already fall back to the column `default` (an empty string when unset), so rows stay rectangular either way
+- INDEX(`export_layout_id`, `export_function_id`, `export_model_relation_id`)

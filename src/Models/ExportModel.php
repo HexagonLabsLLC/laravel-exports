@@ -2,10 +2,20 @@
 
 namespace HexagonLabsLLC\LaravelExports\Models;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property string $id
+ * @property string $title
+ * @property string $model
+ * @property string|null $schema_hash
+ * @property-read Model $instance
+ * @property-read Collection<int, ExportModelRelation> $relations
+ * @property-read Collection<int, ExportLayout> $layouts
+ */
 class ExportModel extends Model
 {
     use HasUuids;
@@ -29,6 +39,7 @@ class ExportModel extends Model
     protected $fillable = [
         'title',
         'model',
+        'schema_hash',
     ];
 
     protected $appends = [

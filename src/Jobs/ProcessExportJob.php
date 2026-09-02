@@ -2,7 +2,6 @@
 
 namespace HexagonLabsLLC\LaravelExports\Jobs;
 
-use HexagonLabsLLC\LaravelExports\Exports\ExportFactory;
 use HexagonLabsLLC\LaravelExports\Models\ExportLayout;
 use HexagonLabsLLC\LaravelExports\Services\DynamicExportService;
 use Illuminate\Bus\Queueable;
@@ -42,6 +41,7 @@ class ProcessExportJob implements ShouldQueue
         public ?string $disk = null,
         public ?string $path = null,
     ) {
+        $this->format = strtolower($format);
         $this->tries = config('laravel-exports.job_tries', 3);
         $this->timeout = config('laravel-exports.job_timeout', 3600);
         $this->disk = $disk ?? config('laravel-exports.disk', 'local');
@@ -56,6 +56,12 @@ class ProcessExportJob implements ShouldQueue
         $this->updateStatus('processing', ['progress' => 0, 'started_at' => now()->toIso8601String()]);
 
         try {
+            // The chunked writers below only speak these formats; anything else
+            // would silently produce an empty file
+            if (!in_array($this->format, ['csv', 'json'], true)) {
+                throw new \InvalidArgumentException("Queued exports do not support format: {$this->format}");
+            }
+
             // Load the layout
             $layout = ExportLayout::findOrFail($this->layoutId);
 
@@ -80,9 +86,6 @@ class ProcessExportJob implements ShouldQueue
             $filename = $this->generateFilename($layout);
             $tempPath = sys_get_temp_dir().'/'.$this->exportId.'.'.$this->format;
 
-            // Create export handler
-            $handler = ExportFactory::create($this->format, $layout, $this->options);
-
             // Open temp file for writing
             $handle = fopen($tempPath, 'w');
             if ($handle === false) {
@@ -106,21 +109,21 @@ class ProcessExportJob implements ShouldQueue
                 $this->chunkSize,
                 function ($chunk) use ($handle, &$processedRows, $totalCount, &$isFirstChunk) {
                     if ($this->format === 'csv') {
+                        $delimiter = $this->options['delimiter'] ?? ',';
+                        $enclosure = $this->options['enclosure'] ?? '"';
+                        $escape = $this->options['escape'] ?? '\\';
+
                         // Write headers on first chunk
                         if ($isFirstChunk && $chunk->isNotEmpty()) {
-                            $headers = array_keys($chunk->first());
-                            $delimiter = $this->options['delimiter'] ?? ',';
-                            fputcsv($handle, $headers, $delimiter);
+                            fputcsv($handle, array_keys($chunk->first()), $delimiter, $enclosure, $escape);
                         }
 
-                        // Write rows
-                        $delimiter = $this->options['delimiter'] ?? ',';
                         foreach ($chunk as $row) {
-                            fputcsv($handle, array_values($row), $delimiter);
+                            fputcsv($handle, $this->sanitizeCsvRow(array_values($row)), $delimiter, $enclosure, $escape);
                         }
                     } elseif ($this->format === 'json') {
                         foreach ($chunk as $index => $row) {
-                            if (! $isFirstChunk || $index > 0) {
+                            if (!$isFirstChunk || $index > 0) {
                                 fwrite($handle, ',');
                             }
                             fwrite($handle, json_encode($row, JSON_PRETTY_PRINT));
@@ -131,7 +134,7 @@ class ProcessExportJob implements ShouldQueue
                     $processedRows += $chunk->count();
 
                     // Update progress
-                    $progress = min(99, (int) (($processedRows / $totalCount) * 100));
+                    $progress = min(99, (int)(($processedRows / $totalCount) * 100));
                     $this->updateStatus('processing', [
                         'progress' => $progress,
                         'processed_rows' => $processedRows,
@@ -147,15 +150,19 @@ class ProcessExportJob implements ShouldQueue
 
             fclose($handle);
 
-            // Move to final storage location
+            // Move to final storage location as a stream so large exports don't load into memory
             $finalPath = $this->path.'/'.$filename;
-            $fileContents = file_get_contents($tempPath);
+            $stream = fopen($tempPath, 'r');
 
-            if ($fileContents === false) {
+            if ($stream === false) {
                 throw new \RuntimeException("Failed to read temp file: {$tempPath}");
             }
 
-            Storage::disk($this->disk)->put($finalPath, $fileContents);
+            Storage::disk($this->disk)->put($finalPath, $stream);
+
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
 
             // Clean up temp file
             @unlink($tempPath);
@@ -205,6 +212,25 @@ class ProcessExportJob implements ShouldQueue
             'error' => $exception->getMessage(),
             'failed_at' => now()->toIso8601String(),
         ]);
+    }
+
+    /**
+     * Neutralize cells that spreadsheet apps would execute as formulas.
+     */
+    protected function sanitizeCsvRow(array $row): array
+    {
+        if (!($this->options['escape_formulas'] ?? true)) {
+            return $row;
+        }
+
+        return array_map(static function ($value) {
+            if (is_string($value) && $value !== '' && !is_numeric($value)
+                && strpbrk($value[0], "=+-@\t\r") !== false) {
+                return "'".$value;
+            }
+
+            return $value;
+        }, $row);
     }
 
     /**
@@ -273,7 +299,7 @@ class ProcessExportJob implements ShouldQueue
     {
         $status = static::getStatus($exportId);
 
-        if (! $status || ($status['status'] ?? null) !== 'completed') {
+        if (!$status || ($status['status'] ?? null) !== 'completed') {
             return null;
         }
 
@@ -287,7 +313,7 @@ class ProcessExportJob implements ShouldQueue
     {
         $status = static::getStatus($exportId);
 
-        if (! $status || ($status['status'] ?? null) !== 'completed') {
+        if (!$status || ($status['status'] ?? null) !== 'completed') {
             return null;
         }
 

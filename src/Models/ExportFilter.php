@@ -6,6 +6,20 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property string $id
+ * @property string $export_layout_id
+ * @property string|null $export_model_id
+ * @property string|null $export_model_relation_id
+ * @property string $logical_operator
+ * @property string $operator
+ * @property mixed $value
+ * @property string $value_type
+ * @property bool $is_request
+ * @property bool $is_required
+ * @property-read ExportLayout|null $layout
+ * @property-read ExportModelRelation|null $modelRelation
+ */
 class ExportFilter extends Model
 {
     use HasUuids;
@@ -54,14 +68,6 @@ class ExportFilter extends Model
     public function layout(): BelongsTo
     {
         return $this->belongsTo(ExportLayout::class, 'export_layout_id');
-    }
-
-    /**
-     * @deprecated Use modelRelation() instead for consistency with other models
-     */
-    public function relation(): BelongsTo
-    {
-        return $this->modelRelation();
     }
 
     public function modelRelation(): BelongsTo

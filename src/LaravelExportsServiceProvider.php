@@ -4,47 +4,45 @@ namespace HexagonLabsLLC\LaravelExports;
 
 use HexagonLabsLLC\LaravelExports\Helpers\ModelRelationInspector;
 use HexagonLabsLLC\LaravelExports\Services\DynamicExportService;
+use HexagonLabsLLC\LaravelExports\Services\LayoutValidator;
+use HexagonLabsLLC\LaravelExports\Services\SchemaSync;
 use Illuminate\Support\ServiceProvider;
 
 class LaravelExportsServiceProvider extends ServiceProvider
 {
-    /**
-     * Register the service provider.
-     *
-     * @return void
-     */
-    public function register()
+    public function register(): void
     {
         $this->mergeConfigFrom(__DIR__.'/../config/laravel-exports.php', 'laravel-exports');
 
-        // Register ModelRelationInspector as singleton
         $this->app->singleton(ModelRelationInspector::class);
+        $this->app->singleton(SchemaSync::class);
+        $this->app->singleton(LayoutValidator::class);
 
-        // Register DynamicExportService with proper dependency injection
         $this->app->singleton(DynamicExportService::class, function ($app) {
             return new DynamicExportService(
-                $app->make(ModelRelationInspector::class)
+                $app->make(ModelRelationInspector::class),
+                $app->make(SchemaSync::class)
             );
         });
 
-        // Register facade alias
         $this->app->singleton('laravel-exports', function ($app) {
             return $app->make(DynamicExportService::class);
         });
     }
 
-    /**
-     * Bootstrap the application services.
-     *
-     * @return void
-     */
-    public function boot()
+    public function boot(): void
     {
+        $this->loadTranslationsFrom(__DIR__.'/../lang', 'laravel-exports');
+
         $this->publishes([
             __DIR__.'/../config/laravel-exports.php' => config_path('laravel-exports.php'),
         ], 'config');
 
         $this->publishes([
+            __DIR__.'/../lang' => $this->app->langPath('vendor/laravel-exports'),
+        ], 'lang');
+
+        $this->publishesMigrations([
             __DIR__.'/../database/migrations/' => database_path('migrations'),
         ], 'migrations');
 
@@ -52,6 +50,7 @@ class LaravelExportsServiceProvider extends ServiceProvider
             $this->commands([
                 Console\Commands\ImportModelsCommand::class,
                 Console\Commands\SeedTransformationFunctionsCommand::class,
+                Console\Commands\ValidateLayoutsCommand::class,
             ]);
         }
     }

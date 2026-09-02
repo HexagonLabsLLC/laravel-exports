@@ -52,7 +52,9 @@ class Customer extends Model
 
 ## Setup
 
-### 1. Import Models with Deep Discovery
+### 1. Import Models with Deep Discovery (Optional)
+
+Lazy sync registers these paths on first reference; run the import to pre-populate them.
 
 ```bash
 php artisan export:import-models --deep --deep-level=2
@@ -71,6 +73,7 @@ $orderModel = ExportModel::where('title', 'Order')->first();
 
 $layout = ExportLayout::create([
     'export_model_id' => $orderModel->id,
+    'name' => 'orders_with_customer_details',
     'title' => 'Orders with Customer Details',
 ]);
 ```

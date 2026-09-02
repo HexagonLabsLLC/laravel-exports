@@ -1,6 +1,6 @@
 # Functions Reference
 
-Complete reference for all 22 built-in transformation functions.
+Complete reference for all 23 built-in transformation functions.
 
 ## Seeding Functions
 
@@ -19,10 +19,12 @@ $function = ExportFunction::where('name', 'Format Date')->first();
 
 ExportColumn::create([
     'export_function_id' => $function->id,
-    'export_function_values' => json_encode(['Y-m-d']),  // Parameters
+    'export_function_values' => [null, 'Y-m-d'],  // Parameters
     // ...
 ]);
 ```
+
+`export_function_values` is a plain PHP array of positional parameters. The column value is injected at the function's value position (index 0 for every built-in function), so put `null` in that slot and start configured parameters at index 1.
 
 ---
 
@@ -38,7 +40,7 @@ Format dates using PHP date format strings.
 **Default Format:** `Y-m-d H:i:s`
 
 ```php
-'export_function_values' => json_encode(['F j, Y'])
+'export_function_values' => [null, 'F j, Y']
 ```
 
 | Format | Example Output |
@@ -75,6 +77,22 @@ Display relative time.
 
 ---
 
+### Format Timestamp
+
+Format a timestamp with timezone conversion.
+
+**Name:** `Format Timestamp`
+**Callable:** `TransformationFunctions::formatTimestamp`
+**Parameters:** `date`, `format`, `timezone`
+**Default Format:** `Y-m-d H:i:s`
+**Default Timezone:** `UTC`
+
+```php
+'export_function_values' => [null, 'Y-m-d H:i:s', 'America/New_York']
+```
+
+---
+
 ### Date Difference
 
 Calculate difference between dates.
@@ -86,10 +104,10 @@ Calculate difference between dates.
 
 ```php
 // Days since registration (compare to now)
-'export_function_values' => json_encode([null, 'days'])
+'export_function_values' => [null, null, 'days']
 
 // Days between two dates
-'export_function_values' => json_encode(['2024-12-31', 'days'])
+'export_function_values' => [null, '2024-12-31', 'days']
 ```
 
 **Units:** `seconds`, `minutes`, `hours`, `days`, `weeks`, `months`, `years`
@@ -163,12 +181,15 @@ Limit string length with suffix.
 **Defaults:** length=50, suffix='...'
 
 ```php
-'export_function_values' => json_encode([100, '...'])
+'export_function_values' => [null, 100, '...']
 ```
 
 | Input | Length | Output |
 |-------|--------|--------|
-| This is a very long text | 15 | This is a ve... |
+| This is a very long text | 15 | This is a very... |
+
+`Str::limit()` keeps `length` characters and then appends the suffix, so the result can
+be longer than `length`.
 
 ---
 
@@ -182,7 +203,7 @@ Convert to URL-friendly slug.
 **Default Separator:** `-`
 
 ```php
-'export_function_values' => json_encode(['-'])
+'export_function_values' => [null, '-']
 ```
 
 | Input | Output |
@@ -201,7 +222,7 @@ Find and replace text.
 **Parameters:** `string`, `search`, `replace`
 
 ```php
-'export_function_values' => json_encode(['-', ''])  // Remove dashes
+'export_function_values' => [null, '-', '']  // Remove dashes
 ```
 
 | Input | Search | Replace | Output |
@@ -220,13 +241,15 @@ Extract text using regex pattern.
 **Parameters:** `string`, `pattern`
 
 ```php
-'export_function_values' => json_encode(['/[0-9]+/'])
+'export_function_values' => [null, '/[0-9]+/']
 ```
 
 | Input | Pattern | Output |
 |-------|---------|--------|
 | Order #12345 | `/[0-9]+/` | 12345 |
-| user@example.com | `/@(.+)$/` | example.com |
+| user@example.com | `/@(.+)$/` | @example.com |
+
+The whole match is returned; capture groups are ignored.
 
 ---
 
@@ -242,7 +265,7 @@ Format with decimals and separators.
 **Defaults:** decimals=2, separator=','
 
 ```php
-'export_function_values' => json_encode([2, ','])
+'export_function_values' => [null, 2, ',']
 ```
 
 | Input | Decimals | Separator | Output |
@@ -262,14 +285,14 @@ Format as currency.
 **Defaults:** currency='USD', locale='en_US'
 
 ```php
-'export_function_values' => json_encode(['USD', 'en_US'])
+'export_function_values' => [null, 'USD', 'en_US']
 ```
 
 | Input | Currency | Locale | Output |
 |-------|----------|--------|--------|
 | 1234.50 | USD | en_US | $1,234.50 |
-| 1234.50 | EUR | de_DE | 1.234,50 EUR |
-| 1234.50 | GBP | en_GB | £1,234.50 |
+| 1234.50 | EUR | de_DE | 1.234,50 with a euro sign suffix |
+| 1234.50 | GBP | en_GB | 1,234.50 with a pound sign prefix |
 
 ---
 
@@ -283,7 +306,7 @@ Round to specified decimals.
 **Default Decimals:** 0
 
 ```php
-'export_function_values' => json_encode([2])
+'export_function_values' => [null, 2]
 ```
 
 | Input | Decimals | Output |
@@ -303,7 +326,7 @@ Format as percentage.
 **Default Decimals:** 2
 
 ```php
-'export_function_values' => json_encode([1])
+'export_function_values' => [null, 1]
 ```
 
 | Input | Decimals | Output |
@@ -325,7 +348,7 @@ Convert boolean to custom text.
 **Defaults:** true='Yes', false='No'
 
 ```php
-'export_function_values' => json_encode(['Active', 'Inactive'])
+'export_function_values' => [null, 'Active', 'Inactive']
 ```
 
 | Input | True Text | False Text | Output |
@@ -347,7 +370,7 @@ Extract value from JSON using dot notation.
 **Parameters:** `json`, `path`
 
 ```php
-'export_function_values' => json_encode(['user.name'])
+'export_function_values' => [null, 'user.name']
 ```
 
 | Input | Path | Output |
@@ -367,13 +390,14 @@ Join array elements with separator.
 **Default Separator:** ', '
 
 ```php
-'export_function_values' => json_encode([', '])
+'export_function_values' => [null, ', ']
 ```
 
 | Input | Separator | Output |
 |-------|-----------|--------|
-| ['a', 'b', 'c'] | , | a, b, c |
-| ['a', 'b', 'c'] | - | a-b-c |
+| ['a', 'b', 'c'] | `', '` | a, b, c |
+| ['a', 'b', 'c'] | `','` | a,b,c |
+| ['a', 'b', 'c'] | `'-'` | a-b-c |
 
 ---
 
@@ -408,7 +432,7 @@ Provide fallback for empty values.
 **Default:** '' (empty string)
 
 ```php
-'export_function_values' => json_encode(['N/A'])
+'export_function_values' => [null, 'N/A']
 ```
 
 | Input | Default | Output |
@@ -431,7 +455,7 @@ Join two values with separator.
 **Default Separator:** ' '
 
 ```php
-'export_function_values' => json_encode(['suffix', ' - '])
+'export_function_values' => [null, 'suffix', ' - ']
 ```
 
 **Note:** Limited functionality. The second value is a literal, not another column value.
@@ -448,7 +472,7 @@ Hash value using specified algorithm.
 **Default Algorithm:** sha256
 
 ```php
-'export_function_values' => json_encode(['sha256'])
+'export_function_values' => [null, 'sha256']
 ```
 
 **Algorithms:** md5, sha1, sha256, sha512
@@ -465,7 +489,7 @@ Mask sensitive data.
 **Defaults:** visible=4, mask='*'
 
 ```php
-'export_function_values' => json_encode([4, '*'])
+'export_function_values' => [null, 4, '*']
 ```
 
 | Input | Visible | Mask | Output |
@@ -482,6 +506,7 @@ Mask sensitive data.
 |------|----------|------------|----------------|
 | Format Date | Date | format | January 15, 2024 |
 | Format Date Human | Date | - | 2 hours ago |
+| Format Timestamp | Date | format, timezone | 2024-01-15 14:30:00 |
 | Date Difference | Date | date2, unit | 30 |
 | Uppercase | String | - | HELLO |
 | Lowercase | String | - | hello |
@@ -501,4 +526,4 @@ Mask sensitive data.
 | Default Value | Utility | default | N/A |
 | Concatenate | Utility | value2, separator | a - b |
 | Hash | Utility | algorithm | abc123... |
-| Mask | Utility | visible, char | 1234**** |
+| Mask | Utility | visible, char | 1234****** |

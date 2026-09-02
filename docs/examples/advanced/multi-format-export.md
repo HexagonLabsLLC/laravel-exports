@@ -1,6 +1,6 @@
 # Multi-Format Export
 
-Export data in different formats (CSV, JSON) from the same layout.
+Export data in different formats (CSV, JSON, and XLSX) from the same layout.
 
 ## Scenario
 
@@ -19,6 +19,7 @@ $formatDate = ExportFunction::where('name', 'Format Date')->first();
 
 $layout = ExportLayout::create([
     'export_model_id' => $orderModel->id,
+    'name' => 'order_export',
     'title' => 'Order Export',
 ]);
 
@@ -42,7 +43,7 @@ ExportColumn::create([
     'title' => 'Total',
     'value_path' => 'total',
     'export_function_id' => $formatCurrency->id,
-    'export_function_values' => json_encode(['USD', 'en_US']),
+    'export_function_values' => [null, 'USD', 'en_US'],
     'position' => 3,
 ]);
 
@@ -51,7 +52,7 @@ ExportColumn::create([
     'title' => 'Date',
     'value_path' => 'created_at',
     'export_function_id' => $formatDate->id,
-    'export_function_values' => json_encode(['Y-m-d']),
+    'export_function_values' => [null, 'Y-m-d'],
     'position' => 4,
 ]);
 
@@ -79,7 +80,7 @@ class OrderExportController extends Controller
     public function export(Request $request)
     {
         $validated = $request->validate([
-            'format' => 'required|in:csv,json',
+            'format' => 'required|in:csv,json,xlsx',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date',
             'status' => 'nullable|array',
@@ -110,20 +111,55 @@ return $service->downloadAs($layout, 'csv', 'orders.csv', $requestData, [
     'delimiter' => ',',      // Field separator (default: ,)
     'enclosure' => '"',      // Field enclosure (default: ")
     'escape' => '\\',        // Escape character (default: \)
-    'headers' => true,       // Include header row (default: true)
+    'include_headers' => true, // Include header row (default: true)
+    'bom' => false,          // Prepend UTF-8 BOM for Excel (default: false)
+    'escape_formulas' => true, // Prefix =, +, -, @, tab, CR cells with ' (default: true)
 ]);
 ```
+
+By default, cell values starting with `=`, `+`, `-`, `@`, a tab, or a carriage return are prefixed with a single quote to guard against spreadsheet formula injection. Set `escape_formulas => false` to disable.
 
 ### JSON Options
 
 ```php
 return $service->downloadAs($layout, 'json', 'orders.json', $requestData, [
-    'pretty' => true,        // Pretty print (default: false)
-    'options' => JSON_UNESCAPED_UNICODE,  // JSON flags
+    'pretty' => true,             // Pretty print (default: false)
+    'unescaped_slashes' => true,  // Do not escape slashes (default: true)
+    'unescaped_unicode' => true,  // Keep unicode characters (default: true)
+    'wrap_data' => true,          // Wrap rows in a "data" key (default: true)
+    'include_meta' => true,       // Include metadata (default: true)
 ]);
 ```
 
+By default, rows are wrapped in a `data` key alongside metadata. With `include_meta` enabled, rows are always wrapped in a `data` key. Set both `wrap_data` and `include_meta` to false for a bare array of rows.
+
+### XLSX Options
+
+The `xlsx` format needs the optional `phpoffice/phpspreadsheet` package
+(`composer require phpoffice/phpspreadsheet`); the handler throws with install
+instructions when it is missing.
+
+```php
+return $service->downloadAs($layout, 'xlsx', 'orders.xlsx', $requestData, [
+    'include_headers' => true,  // Header row per sheet (default: true)
+    'sheet_title' => 'Orders',  // Single-sheet title (default: layout title, then name)
+    'sheet_by' => 'Status',     // One sheet per distinct value of this column title
+]);
+```
+
+### Custom Formats
+
+Register your own handler to add a format:
+
+```php
+use HexagonLabsLLC\LaravelExports\Exports\ExportFactory;
+
+ExportFactory::register('pdf', PdfExportHandler::class); // must extend ExportHandler
+```
+
 ## Sample Outputs
+
+The JSON samples below use `wrap_data => false` and `include_meta => false`.
 
 ### CSV Output
 
@@ -139,18 +175,18 @@ ORD-003,Bob Wilson,$320.00,2024-03-10,completed
 ```json
 [
     {
-        "order_number": "ORD-001",
-        "customer": "John Doe",
-        "total": "$150.00",
-        "date": "2024-01-15",
-        "status": "completed"
+        "Order Number": "ORD-001",
+        "Customer": "John Doe",
+        "Total": "$150.00",
+        "Date": "2024-01-15",
+        "Status": "completed"
     },
     {
-        "order_number": "ORD-002",
-        "customer": "Jane Smith",
-        "total": "$275.50",
-        "date": "2024-02-20",
-        "status": "pending"
+        "Order Number": "ORD-002",
+        "Customer": "Jane Smith",
+        "Total": "$275.50",
+        "Date": "2024-02-20",
+        "Status": "pending"
     }
 ]
 ```
@@ -158,7 +194,7 @@ ORD-003,Bob Wilson,$320.00,2024-03-10,completed
 ### JSON Output (Compact)
 
 ```json
-[{"order_number":"ORD-001","customer":"John Doe","total":"$150.00","date":"2024-01-15","status":"completed"},{"order_number":"ORD-002","customer":"Jane Smith","total":"$275.50","date":"2024-02-20","status":"pending"}]
+[{"Order Number":"ORD-001","Customer":"John Doe","Total":"$150.00","Date":"2024-01-15","Status":"completed"},{"Order Number":"ORD-002","Customer":"Jane Smith","Total":"$275.50","Date":"2024-02-20","Status":"pending"}]
 ```
 
 ## API Routes
@@ -248,6 +284,7 @@ The handlers set appropriate content types:
 
 - **CSV**: `text/csv`
 - **JSON**: `application/json`
+- **XLSX**: `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
 
 ## Streaming Large Exports
 

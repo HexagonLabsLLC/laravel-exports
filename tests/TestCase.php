@@ -40,11 +40,12 @@ class TestCase extends Orchestra
 
     protected function setUpDatabase(): void
     {
-        // Package tables — final schema consolidating all migrations
+        // Package tables - final schema consolidating all migrations
         Schema::create('export_models', function ($table) {
             $table->uuid('id')->primary();
             $table->string('title');
             $table->string('model');
+            $table->string('schema_hash')->nullable();
             $table->timestamps();
 
             $table->index('model');
@@ -55,14 +56,17 @@ class TestCase extends Orchestra
             $table->uuid('export_model_id');
             $table->string('title');
             $table->string('relation');
+            $table->string('column')->nullable();
             $table->uuid('related_model_id')->nullable();
             $table->boolean('is_column')->default(false);
             $table->boolean('is_collection')->default(false);
             $table->boolean('has_pivot')->default(false);
             $table->json('pivot_columns')->nullable();
+            $table->json('metadata')->nullable();
             $table->timestamps();
 
             $table->index(['export_model_id', 'relation', 'related_model_id'], 'emr_model_relation_idx');
+            $table->unique(['export_model_id', 'relation', 'is_column'], 'emr_model_relation_unique');
 
             $table->foreign('export_model_id')->references('id')->on('export_models')->onDelete('cascade');
             $table->foreign('related_model_id')->references('id')->on('export_models')->onDelete('cascade');
@@ -70,11 +74,16 @@ class TestCase extends Orchestra
 
         Schema::create('export_layouts', function ($table) {
             $table->uuid('id')->primary();
-            $table->uuid('export_model_id');
+            $table->uuid('export_model_id')->nullable();
+            $table->string('model')->nullable();
             $table->string('name');
+            $table->string('title')->nullable();
             $table->string('description')->nullable();
             $table->boolean('is_pivot')->default(false);
             $table->json('pivot_config')->nullable();
+            $table->json('column_definitions')->nullable();
+            $table->json('filter_definitions')->nullable();
+            $table->json('sort_definitions')->nullable();
             $table->timestamps();
 
             $table->index(['export_model_id', 'name']);
@@ -127,6 +136,7 @@ class TestCase extends Orchestra
             $table->string('title')->nullable();
             $table->string('value_path');
             $table->string('default')->nullable()->default(null);
+            $table->string('format')->nullable();
             $table->integer('position');
             $table->boolean('is_expanded')->default(false);
             $table->json('expansion_data')->nullable()->default(null);

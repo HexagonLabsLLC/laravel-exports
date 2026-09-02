@@ -19,7 +19,10 @@ Export all users with their basic information: name, email, and registration dat
 
 ## Setup
 
-### 1. Import Models
+### 1. Import Models (Optional)
+
+Only needed to pre-populate the catalog, or when `laravel-exports.schema_sync` is
+`manual`. The default lazy mode registers the model on first reference.
 
 ```bash
 php artisan export:import-models
@@ -38,6 +41,7 @@ $userModel = ExportModel::where('title', 'User')->first();
 // Create layout
 $layout = ExportLayout::create([
     'export_model_id' => $userModel->id,
+    'name' => 'user_list',
     'title' => 'User List',
     'description' => 'Basic user information export',
 ]);
@@ -89,13 +93,21 @@ Jane Smith,jane@example.com,2024-02-20 00:00:00
 Bob Wilson,bob@example.com,2024-03-10 00:00:00
 ```
 
-**JSON:**
+**JSON** (keys are the column titles; by default rows are wrapped in a `data` key with metadata):
 ```json
-[
-    {"name": "John Doe", "email": "john@example.com", "registered": "2024-01-15 00:00:00"},
-    {"name": "Jane Smith", "email": "jane@example.com", "registered": "2024-02-20 00:00:00"},
-    {"name": "Bob Wilson", "email": "bob@example.com", "registered": "2024-03-10 00:00:00"}
-]
+{
+    "meta": {
+        "exported_at": "2024-03-15T10:30:00+00:00",
+        "total_records": 3,
+        "layout": "user_list",
+        "model": "User"
+    },
+    "data": [
+        {"Name": "John Doe", "Email": "john@example.com", "Registered": "2024-01-15 00:00:00"},
+        {"Name": "Jane Smith", "Email": "jane@example.com", "Registered": "2024-02-20 00:00:00"},
+        {"Name": "Bob Wilson", "Email": "bob@example.com", "Registered": "2024-03-10 00:00:00"}
+    ]
+}
 ```
 
 ## Controller Example
@@ -135,8 +147,8 @@ return $service->downloadAs($layout, 'json', 'users.json');
 $data = $service->executeExport($layout);
 
 foreach ($data as $row) {
-    // Process each row
-    echo $row['name'] . "\n";
+    // Rows are keyed by the column title (falling back to value_path)
+    echo $row['Name'] . "\n";
 }
 ```
 

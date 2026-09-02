@@ -9,3 +9,7 @@ testbench.yaml
 vendor
 node_modules
 .env*
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+todos.md

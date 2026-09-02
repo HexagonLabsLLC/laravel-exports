@@ -34,7 +34,7 @@ The service loads the complete layout configuration including all related data.
 $layout = ExportLayout::with([
     'exportModel',
     'columns.modelRelation',
-    'columns.function',
+    'columns.exportFunction',
     'columns.filter',
     'filters.modelRelation',
     'sorts.modelRelation',
@@ -42,10 +42,11 @@ $layout = ExportLayout::with([
 ```
 
 **Key Operations:**
-- Load the export model class
+- Resolve the export model (a layout's `model` FQCN wins over `export_model_id` and lazy-syncs the catalog)
 - Load all columns with their relations and functions
-- Load layout-level filters
+- Load layout-level filters (column-attached filters are excluded here)
 - Load sorting configuration
+- Append any `column_definitions`, `filter_definitions`, and `sort_definitions` carried by the layout row, after the persisted rows
 - Validate the configuration
 
 ### Phase 2: Query Building
@@ -55,8 +56,9 @@ The service builds an Eloquent query based on the configuration.
 #### Base Query
 
 ```php
-$model = $layout->exportModel->instance;
-$query = $model::query();
+// resolveExportModel() honors the layout's `model` FQCN first, then export_model_id
+$modelClass = $layout->resolveExportModel()->model;
+$query = $modelClass::query();
 ```
 
 #### Eager Loading
@@ -136,14 +138,14 @@ The query is executed to retrieve records:
 // Standard execution
 $results = $query->get();
 
-// Chunked execution (for large datasets)
+// Chunked execution (for large datasets, and the basis of streaming)
 $query->chunk(1000, function ($chunk) {
     // Process chunk
 });
-
-// Lazy execution (streaming)
-$results = $query->lazy();
 ```
+
+Streaming exports go through the same `chunk()` path: `streamAs()` hands
+`executeExportChunked()` to the handler's stream callback.
 
 ### Phase 4: Result Processing
 
@@ -159,6 +161,8 @@ For each column:
 4. **Apply aggregation** if configured (sum, count, first, etc.)
 5. **Apply transformation function** if configured
 6. **Apply default value** if result is empty
+7. **Apply the `format` template** (`{value}`) to non-empty scalar values
+8. **Apply a request `override`** for the column, which replaces whatever came before
 
 ```php
 // Example processing for a column with:
@@ -208,21 +212,21 @@ Processed data is converted to the requested format.
 #### CSV Output
 
 ```php
-$handler = new CsvExportHandler();
-$csv = $handler->export($data, [
+$handler = new CsvExportHandler($layout, [
     'delimiter' => ',',
     'enclosure' => '"',
-    'headers' => true,
+    'include_headers' => true,
 ]);
+$csv = $handler->export($data);
 ```
 
 #### JSON Output
 
 ```php
-$handler = new JsonExportHandler();
-$json = $handler->export($data, [
+$handler = new JsonExportHandler($layout, [
     'pretty' => true,
 ]);
+$json = $handler->export($data);
 ```
 
 #### Download Response
@@ -276,30 +280,16 @@ $requestData = [
 ];
 ```
 
-## Debug Mode
+## Debugging
 
-Enable debug mode to see detailed processing information:
-
-```env
-APP_DEBUG=true
-```
-
-This logs:
-- Query SQL and bindings
-- Filter application details
-- Column processing steps
-- Relation traversal
-- Function execution
+Use `getQuery()` to inspect the fully built query (filters, sorts, and eager loads applied) without executing it:
 
 ```php
-// Example log output
-[INFO] Building query for layout: Active Users Report
-[INFO] Loading relations: ['profile', 'orders', 'orders.items']
-[INFO] Applying filter: status = 'active'
-[INFO] Applying sort: created_at desc (priority 1)
-[INFO] Processing column 'Email': extracted value 'user@example.com'
-[INFO] Processing column 'Order Total': aggregated sum = 1234.56
+$query = $service->getQuery($layout, $requestData);
+dd($query->toSql(), $query->getBindings(), $query->getEagerLoads());
 ```
+
+Errors and warnings are still written to the log.
 
 ## Performance Considerations
 
@@ -334,6 +324,11 @@ For very large exports, streaming avoids memory limits:
 ```php
 return $service->streamAs($layout, 'csv', 'huge-export.csv');
 ```
+
+Both paths derive their rows chunk by chunk, so a layout with an `is_expanded` column
+throws a `RuntimeException`: expanded columns need the full dataset to know the column
+set. Chunked, streamed, paginated, and queued exports are all affected; use
+`executeExport()` for those layouts.
 
 ## Error Handling
 

@@ -16,9 +16,28 @@ $userModel = ExportModel::where('title', 'User')->first();
 // Create a layout
 $layout = ExportLayout::create([
     'export_model_id' => $userModel->id,
+    'name' => 'active_users_report',
     'title' => 'Active Users Report',
     'description' => 'Export active users with their profile information',
 ]);
+```
+
+A layout can also name the model class directly instead of pointing at a catalog row,
+and can carry its columns, filters, and sorts as JSON on the layout row itself
+(`column_definitions`, `filter_definitions`, `sort_definitions`) - see the
+[API Reference](../reference/api.md#exportlayout). `ExportLayoutBuilder` composes the
+same thing fluently:
+
+```php
+use HexagonLabsLLC\LaravelExports\Builders\ExportLayoutBuilder;
+
+$layout = ExportLayoutBuilder::for(\App\Models\User::class)
+    ->name('active_users_report')
+    ->title('Active Users Report')
+    ->column('Email', 'email')
+    ->filter('status', '=', 'active')
+    ->sort('created_at', 'desc')
+    ->save();
 ```
 
 ## Defining Columns
@@ -46,12 +65,15 @@ ExportColumn::create([
 | `value_path` | string | Dot notation path to value |
 | `position` | integer | Display order (1 = first) |
 | `default` | string | Value when data is null/empty |
-| `omit_on_empty` | boolean | Skip column if value is empty |
+| `format` | string | `{value}` output template applied to non-empty cells, after aggregation, functions, and defaults (`Site {value}`) |
+| `omit_on_empty` | boolean | Marker only; empty cells already fall back to `default` (an empty string when unset) |
 | `export_model_relation_id` | uuid | Link to relation (optional) |
 | `export_function_id` | uuid | Transformation function |
-| `export_function_values` | json | Function parameters |
+| `export_function_values` | json | Positional function parameters (`null` in the value slot) |
 | `export_filter_id` | uuid | Column-specific filter |
 | `aggregator` | enum | Aggregation for collections |
+| `is_expanded` | boolean | Fan a collection-relation column out into one generated column per distinct related value |
+| `expansion_data` | json | Expansion config: `header_path` names each generated column (default `name`) |
 
 ## Value Paths
 
@@ -136,16 +158,18 @@ $requestData = [
 $service->executeExport($layout, $requestData);
 ```
 
-## Omit Empty Columns
+## Empty Column Values
 
-Skip columns with empty values:
+Every column key stays in the row, so columns stay aligned: an empty value falls back to
+the column's `default`, which is an empty string when none is set. `omit_on_empty`
+records the intent but does not change the output today.
 
 ```php
 ExportColumn::create([
     'export_layout_id' => $layout->id,
     'title' => 'Middle Name',
     'value_path' => 'middle_name',
-    'omit_on_empty' => true,      // Skip if empty
+    'default' => '',              // Explicit empty string
     'position' => 1,
 ]);
 ```
@@ -165,7 +189,7 @@ ExportColumn::create([
     'title' => 'Joined',
     'value_path' => 'created_at',
     'export_function_id' => $formatDate->id,
-    'export_function_values' => json_encode(['F j, Y']),  // "January 1, 2025"
+    'export_function_values' => [null, 'F j, Y'],  // "January 1, 2025"
     'position' => 1,
 ]);
 ```
@@ -232,7 +256,7 @@ ExportColumn::create([
     'value_path' => 'orders.amount',
     'aggregator' => 'sum',
     'export_function_id' => $formatCurrency->id,
-    'export_function_values' => json_encode(['USD', 'en_US']),
+    'export_function_values' => [null, 'USD', 'en_US'],
     'default' => '$0.00',
     'position' => 5,
 ]);
@@ -246,6 +270,7 @@ One model can have multiple layouts for different purposes:
 // Detailed user report
 $detailedLayout = ExportLayout::create([
     'export_model_id' => $userModel->id,
+    'name' => 'detailed_user_report',
     'title' => 'Detailed User Report',
     'description' => 'All user fields with related data',
 ]);
@@ -253,6 +278,7 @@ $detailedLayout = ExportLayout::create([
 // Compact user list
 $compactLayout = ExportLayout::create([
     'export_model_id' => $userModel->id,
+    'name' => 'user_list',
     'title' => 'User List',
     'description' => 'Simple name and email list',
 ]);
@@ -260,6 +286,7 @@ $compactLayout = ExportLayout::create([
 // Admin export with sensitive data
 $adminLayout = ExportLayout::create([
     'export_model_id' => $userModel->id,
+    'name' => 'admin_user_export',
     'title' => 'Admin User Export',
     'description' => 'Complete user data including sensitive fields',
 ]);

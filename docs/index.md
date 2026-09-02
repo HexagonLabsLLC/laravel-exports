@@ -5,13 +5,14 @@ Laravel Exports is a powerful, database-driven export system for Laravel applica
 ## Key Features
 
 - **Database-Driven Configuration** - All export definitions stored in database tables
-- **Dynamic Model Discovery** - Auto-import Eloquent models and relationships
+- **Dynamic Model Discovery** - Models and relations register themselves on first reference (lazy schema sync); `export:import-models` pre-populates the catalog when you want it
+- **Fluent Builder and Validation** - `ExportLayoutBuilder` composes layouts in one chain; `export:validate` audits them in CI
 - **Advanced Filtering** - Static, request-based, and collection filters
 - **Nested Relationships** - Export deeply nested data using dot notation
-- **Transformation Functions** - 22 built-in functions for data formatting
+- **Transformation Functions** - 23 built-in functions for data formatting
 - **Aggregations** - sum, count, avg, min, max, first, last on collections
 - **Performance Optimized** - Smart eager loading, chunking, and streaming
-- **Multiple Formats** - CSV and JSON with extensible architecture
+- **Multiple Formats** - CSV and JSON built in, XLSX via the optional phpoffice/phpspreadsheet package
 - **Background Processing** - Queue large exports with status tracking
 - **Pivot Table Support** - Export BelongsToMany pivot attributes
 
@@ -71,8 +72,8 @@ Laravel Exports is a powerful, database-driven export system for Laravel applica
 
 ## Requirements
 
-- PHP 8.1 or higher
-- Laravel 10.0 or higher
+- PHP 8.2 or higher
+- Laravel 12.12+ or 13
 - Database with UUID support (MySQL 5.7+, PostgreSQL 9.4+, SQLite 3.8+)
 
 ## Quick Start
@@ -87,21 +88,23 @@ php artisan vendor:publish --provider="HexagonLabsLLC\LaravelExports\LaravelExpo
 # Run migrations
 php artisan migrate
 
-# Import your models
-php artisan export:import-models
-
-# Seed transformation functions
+# Seed transformation functions (optional)
 php artisan export:seed-functions
+
+# Optional: pre-populate the model catalog in one pass. Under the default
+# lazy schema sync, models register themselves on first reference instead.
+php artisan export:import-models
 ```
 
 ```php
 use HexagonLabsLLC\LaravelExports\Models\{ExportModel, ExportLayout, ExportColumn};
 use HexagonLabsLLC\LaravelExports\Services\DynamicExportService;
 
-// Create a layout
-$userModel = ExportModel::where('title', 'User')->first();
+// Create a layout. Naming the model class directly lets lazy sync register
+// it; alternatively pass 'export_model_id' from an ExportModel row.
 $layout = ExportLayout::create([
-    'export_model_id' => $userModel->id,
+    'model' => \App\Models\User::class,
+    'name' => 'user_export',
     'title' => 'User Export',
 ]);
 

@@ -29,6 +29,7 @@ $orderModel = ExportModel::where('title', 'Order')->first();
 
 $layout = ExportLayout::create([
     'export_model_id' => $orderModel->id,
+    'name' => 'filtered_orders_report',
     'title' => 'Filtered Orders Report',
 ]);
 
@@ -57,7 +58,7 @@ ExportFilter::create([
     'operator' => 'between',
     'is_request' => true,
     'is_required' => true,      // Must provide dates
-    'value_type' => 'date',
+    'value_type' => 'array',
     'logical_operator' => 'AND',
 ]);
 
@@ -79,7 +80,7 @@ ExportFilter::create([
     'operator' => '>=',
     'is_request' => true,
     'is_required' => false,
-    'value_type' => 'number',
+    'value_type' => 'integer',
     'logical_operator' => 'AND',
 ]);
 ```
@@ -189,18 +190,18 @@ POST /api/exports/orders
 
 ## Parameter Name Matching
 
-The system matches parameters flexibly:
+The system matches parameter names against these variants (matching is case-sensitive): exact name, lowercased name, snake_case name, the name with dots replaced by underscores, the snake_case name with dots replaced by underscores, the filter's UUID, and that UUID with dashes replaced by underscores:
 
 ```php
-// Filter for 'created_at' matches any of:
-'created_at'     // Exact match
-'createdat'      // Lowercase no underscore
-'CREATED_AT'     // Uppercase
+// Filter for 'customer.name' matches any of:
+'customer.name'   // Exact match
+'customer_name'   // Dots replaced by underscores
+$filter->id       // Filter UUID
 
-// For nested filters like 'customer.name':
-'customer.name'
-'customer_name'
-'customerName'
+// For camelCase paths like 'workOrder.invoice.custom_id':
+'workorder.invoice.custom_id'   // Lowercase
+'work_order.invoice.custom_id'  // Snake case
+'workOrder_invoice_custom_id'   // Underscores
 ```
 
 ## Combining Static and Dynamic Filters

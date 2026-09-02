@@ -2,9 +2,6 @@
 
 namespace HexagonLabsLLC\LaravelExports\Enums;
 
-use Illuminate\Database\Query\Builder;
-use ReflectionMethod;
-
 enum OperatorType: string
 {
     case EQUALS = '=';
@@ -62,28 +59,5 @@ enum OperatorType: string
             'relation' => $or ? 'orWhereRelation' : 'whereRelation',
             default => null,
         };
-    }
-
-    public static function getCallableArguments(string $callable): array
-    {
-        $reflection = new ReflectionMethod('\\Illuminate\\Database\\Query\\Builder\\'.$callable);
-
-        $parameters = $reflection->getParameters();
-
-        return array_map(function ($parameter) {
-            return $parameter->getName();
-        }, $parameters);
-    }
-
-    public static function builder(
-        Builder $query,
-        bool $or,
-        string $operator,
-        ...$args
-    ): Builder {
-        return call_user_func_array(
-            [$query, self::getCallable($operator, $or)],
-            $args
-        );
     }
 }

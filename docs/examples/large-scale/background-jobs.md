@@ -29,6 +29,8 @@ return response()->json([
 ]);
 ```
 
+Queued exports support only the `csv` and `json` formats. Other formats throw an `InvalidArgumentException` when the job runs.
+
 ### Check Status
 
 ```php
@@ -36,15 +38,21 @@ use HexagonLabsLLC\LaravelExports\Jobs\ProcessExportJob;
 
 $status = ProcessExportJob::getStatus($exportId);
 
-// Returns:
+// Returns (while processing):
 // [
-//     'status' => 'processing',  // processing, completed, failed
-//     'progress' => 45,          // Percentage
-//     'row_count' => 45000,      // Rows processed
-//     'error' => null,           // Error message if failed
-//     'path' => null,            // File path when complete
-//     'url' => null,             // Download URL when complete
+//     'status' => 'processing',      // processing, completed, failed
+//     'progress' => 45,              // Percentage
+//     'processed_rows' => 45000,     // Rows written so far
+//     'total_rows' => 100000,        // Rows the export will produce
+//     'export_id' => '...',          // Always present
+//     'layout_id' => '...',          // Always present
+//     'format' => 'csv',             // Always present
+//     'updated_at' => '...',         // Always present
 // ]
+
+// On completion the payload also carries:
+// 'row_count', 'path', 'disk', 'url', 'filename', 'completed_at'
+// On failure: 'error' and 'failed_at'
 ```
 
 ### Check Completion
@@ -245,6 +253,10 @@ EXPORT_STATUS_TTL=86400
 
 # Chunk size for processing
 EXPORT_CHUNK_SIZE=1000
+
+# Job attempts and timeout (seconds)
+EXPORT_JOB_TRIES=3
+EXPORT_JOB_TIMEOUT=3600
 ```
 
 ### Queue Worker
@@ -287,8 +299,8 @@ EXPORT_DISK=exports
 ## Status Lifecycle
 
 ```
-queued -> processing -> completed
-                    \-> failed
+processing -> completed
+          \-> failed
 ```
 
 **Status values:**
@@ -311,16 +323,20 @@ The job handles errors gracefully:
 
 ### Retry Logic
 
-Configure retries in the job:
+The job sets `$tries` and `$timeout` from config in its constructor, so a subclass
+property default is overwritten. Configure retries through the config keys instead:
+
+```env
+EXPORT_JOB_TRIES=3
+EXPORT_JOB_TIMEOUT=3600
+```
+
+Backoff is not set by the package; add it in a subclass if you need one:
 
 ```php
-// The job already has retry logic built in
-// You can override by extending the job class
-
 class CustomExportJob extends ProcessExportJob
 {
-    public $tries = 3;
-    public $backoff = [60, 120, 300];  // Seconds between retries
+    public array $backoff = [60, 120, 300];  // Seconds between retries
 }
 ```
 

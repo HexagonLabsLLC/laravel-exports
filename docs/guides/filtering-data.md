@@ -40,7 +40,7 @@ ExportFilter::create([
     'operator' => 'between',
     'is_request' => true,         // Get value from request
     'is_required' => true,        // Export fails without it
-    'value_type' => 'date',
+    'value_type' => 'array',
     'logical_operator' => 'AND',
 ]);
 ```
@@ -81,28 +81,28 @@ ExportFilter::create([
 ExportFilter::create([
     'operator' => '>',
     'value' => 100,
-    'value_type' => 'number',
+    'value_type' => 'integer',
 ]);
 
 // Less than or equal
 ExportFilter::create([
     'operator' => '<=',
     'value' => 50,
-    'value_type' => 'number',
+    'value_type' => 'integer',
 ]);
 
 // Greater than or equal
 ExportFilter::create([
     'operator' => '>=',
     'value' => 18,
-    'value_type' => 'number',
+    'value_type' => 'integer',
 ]);
 
 // Less than
 ExportFilter::create([
     'operator' => '<',
     'value' => 100,
-    'value_type' => 'number',
+    'value_type' => 'integer',
 ]);
 ```
 
@@ -182,10 +182,13 @@ ExportFilter::create([
 
 ## Logical Operators
 
-Combine filters with AND/OR:
+Filters apply in creation order, and an `or` filter groups with the filter **before**
+it (a run of consecutive `or` filters extends the same group). Groups are ANDed
+together, so `A, or B, C` produces `(A OR B) AND C` - an or-pair can never disjoin an
+unrelated scoping filter.
 
 ```php
-// Filter 1: status = 'active' AND
+// Filter 1: status = 'active'
 $filter1 = ExportFilter::create([
     'export_layout_id' => $layout->id,
     'export_model_relation_id' => $statusRelation->id,
@@ -194,7 +197,7 @@ $filter1 = ExportFilter::create([
     'logical_operator' => 'AND',
 ]);
 
-// Filter 2: OR status = 'pending'
+// Filter 2: OR status = 'pending' - groups with filter 1
 $filter2 = ExportFilter::create([
     'export_layout_id' => $layout->id,
     'export_model_relation_id' => $statusRelation->id,
@@ -204,7 +207,8 @@ $filter2 = ExportFilter::create([
 ]);
 ```
 
-**Result:** Exports users where status is 'active' OR 'pending'
+**Result:** `WHERE (status = 'active' or status = 'pending')`. Add a third `AND` filter
+and it is ANDed against that group rather than folded into the OR.
 
 ## Required vs Optional Filters
 
@@ -232,37 +236,31 @@ ExportFilter::create([
 
 ## Value Types
 
-Specify the expected value type:
+Specify the expected value type. Only these five are accepted (the database column is an
+enum and `export:validate` rejects anything else); only `array` changes runtime behavior,
+by JSON-decoding the stored value:
 
 | Type | Description | Example |
 |------|-------------|---------|
-| `string` | Text value | `"active"` |
-| `number` | Numeric value | `100` |
+| `string` | Text value, including dates | `"active"`, `"2024-01-01"` |
+| `integer` | Whole number | `100` |
+| `float` | Decimal number | `19.99` |
 | `boolean` | True/false | `true` |
 | `array` | JSON array | `["a", "b"]` |
-| `date` | Date string | `"2024-01-01"` |
 
 ## Request Parameter Matching
 
-The system matches request parameters flexibly:
+The system matches request parameter names against these variants (matching is case-sensitive): the exact name, its lowercased form, its snake_case form, the name with dots replaced by underscores, the snake_case form with dots replaced by underscores, the filter's UUID, and that UUID with dashes replaced by underscores:
 
 ```php
-// Filter configured for 'created_at'
+// Filter configured for 'workOrder.invoice.custom_id'
 
 // All of these work:
-$requestData = ['created_at' => ['2024-01-01', '2024-12-31']];
-$requestData = ['createdat' => ['2024-01-01', '2024-12-31']];
-$requestData = ['CREATED_AT' => ['2024-01-01', '2024-12-31']];
-```
-
-For nested relations:
-
-```php
-// Filter for 'workOrder.invoice.custom_id'
-
-$requestData = ['workOrder.invoice.custom_id' => 'value'];
-$requestData = ['work_order.invoice.custom_id' => 'value'];
-$requestData = ['workOrder_invoice_custom_id' => 'value'];
+$requestData = ['workOrder.invoice.custom_id' => 'value'];   // Exact
+$requestData = ['workorder.invoice.custom_id' => 'value'];   // Lowercase
+$requestData = ['work_order.invoice.custom_id' => 'value'];  // Snake case
+$requestData = ['workOrder_invoice_custom_id' => 'value'];   // Underscores
+$requestData = [$filter->id => 'value'];                     // Filter UUID
 ```
 
 ## Filtering Related Data
@@ -294,6 +292,7 @@ For nested columns, the system automatically parses the path:
 $invoiceIdRelation = ExportModelRelation::create([
     'export_model_id' => $workItemModel->id,
     'relation' => 'workOrder.invoice.custom_id',
+    'title' => 'Invoice Custom ID',
     'is_column' => true,  // Mark as column, not relation
 ]);
 
@@ -341,6 +340,10 @@ ExportColumn::create([
 
 This extracts the value from the first identifier where type = 'Container'.
 
+Column-attached filters with any other operator constrain the main query instead, and
+they go through the same request handling as layout filters - including coercing a
+comma-separated request string into an array for `in`, `not_in`, and `between`.
+
 ## Common Filter Patterns
 
 ### Date Range
@@ -352,7 +355,7 @@ ExportFilter::create([
     'operator' => 'between',
     'is_request' => true,
     'is_required' => true,
-    'value_type' => 'date',
+    'value_type' => 'array',
 ]);
 
 // Usage
@@ -406,25 +409,20 @@ ExportFilter::create([
     'export_model_relation_id' => $orderTotalRelation->id,
     'operator' => '>=',
     'value' => 100,
-    'value_type' => 'number',
+    'value_type' => 'integer',
 ]);
 ```
 
 ## Debugging Filters
 
-Enable debug mode:
+Use `getQuery()` to inspect the query with all filters applied:
 
-```env
-APP_DEBUG=true
+```php
+$query = $service->getQuery($layout, $requestData);
+dd($query->toSql(), $query->getBindings());
 ```
 
-Check logs for:
-
-```
-[INFO] Applying filter: status = 'active'
-[INFO] Request filter matched: created_at => ['2024-01-01', '2024-12-31']
-[INFO] Query SQL: SELECT * FROM users WHERE status = 'active' AND ...
-```
+Errors and warnings are still written to the log.
 
 ## Best Practices
 

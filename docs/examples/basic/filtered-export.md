@@ -31,6 +31,7 @@ $userModel = ExportModel::where('title', 'User')->first();
 
 $layout = ExportLayout::create([
     'export_model_id' => $userModel->id,
+    'name' => 'active_users_2024',
     'title' => 'Active Users 2024',
 ]);
 
@@ -199,4 +200,4 @@ public function export(Request $request)
 - Static filters are always applied
 - Request-based filters apply only when values are provided
 - Required filters cause export to fail if missing
-- Use `logical_operator` to combine filters with AND/OR
+- Use `logical_operator` to combine filters: an `or` filter groups with the filter before it, and the groups are ANDed (`A, or B, C` => `(A OR B) AND C`)

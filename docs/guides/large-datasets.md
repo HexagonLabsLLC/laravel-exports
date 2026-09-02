@@ -29,6 +29,11 @@ $service->executeExport($layout);  // May fail with 100k+ records
 | Streaming | Direct download | Very low |
 | Background | Large files, async | Low (server-side) |
 
+All three derive rows chunk by chunk, so none of them supports a layout with an
+`is_expanded` column: expanded columns need the full dataset to determine the column
+set, and chunked, streamed, paginated, and queued exports throw a `RuntimeException`.
+Use `executeExport()` for those layouts.
+
 ## Chunked Processing
 
 Process records in batches:
@@ -133,6 +138,8 @@ return response()->json([
 ]);
 ```
 
+Queued exports support only the `csv` and `json` formats. Other formats throw an `InvalidArgumentException` when the job runs.
+
 ### Check Status
 
 ```php
@@ -141,15 +148,15 @@ use HexagonLabsLLC\LaravelExports\Jobs\ProcessExportJob;
 // Get status
 $status = ProcessExportJob::getStatus($exportId);
 
-// Status structure:
+// Status structure (always: status, progress, export_id, layout_id, format, updated_at):
 // [
-//     'status' => 'processing',  // processing, completed, failed
-//     'progress' => 45,          // Percentage (0-100)
-//     'row_count' => 4500,       // Rows processed
-//     'error' => null,           // Error message if failed
-//     'path' => null,            // File path when complete
-//     'url' => null,             // Download URL when complete
+//     'status' => 'processing',   // processing, completed, failed
+//     'progress' => 45,           // Percentage (0-100)
+//     'processed_rows' => 4500,   // While processing
+//     'total_rows' => 10000,      // While processing
 // ]
+// On completion: row_count, path, disk, url, filename, completed_at
+// On failure: error, failed_at
 
 // Check if complete
 if (ProcessExportJob::isComplete($exportId)) {
@@ -365,6 +372,7 @@ logger("Chunk 500: {$time}s");
 // Layout for 1M+ orders
 $layout = ExportLayout::create([
     'export_model_id' => $orderModel->id,
+    'name' => 'all_orders_export',
     'title' => 'All Orders Export',
 ]);
 

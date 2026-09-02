@@ -332,7 +332,7 @@ it('can export as JSON', function () {
 
 it('throws exception for invalid layout', function () {
     $this->service->executeExport('invalid-uuid');
-})->throws(\Exception::class, 'Layout not found');
+})->throws(Exception::class, 'Layout not found');
 
 it('throws exception for unsupported format', function () {
     $layout = ExportLayout::create([
@@ -341,7 +341,7 @@ it('throws exception for unsupported format', function () {
     ]);
 
     $this->service->exportTo($layout->id, 'xml');
-})->throws(\InvalidArgumentException::class, 'Unsupported export format: xml');
+})->throws(InvalidArgumentException::class, 'Unsupported export format: xml');
 
 it('can filter collection relations with column filters', function () {
     // Create a layout that exports posts with specific tag values filtered by category
@@ -383,7 +383,7 @@ it('can filter collection relations with column filters', function () {
     $titleRelation = ExportModelRelation::where('export_model_id', $postModel->id)
         ->where('relation', 'title')->first();
 
-    if (! $titleRelation) {
+    if (!$titleRelation) {
         $titleRelation = ExportModelRelation::create([
             'export_model_id' => $postModel->id,
             'title' => 'title',

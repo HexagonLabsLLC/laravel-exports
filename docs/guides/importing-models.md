@@ -2,6 +2,8 @@
 
 The `export:import-models` command discovers and registers your Eloquent models for exporting.
 
+Running it is now optional under the default `lazy` schema sync mode: models and relation paths sync into the catalog automatically the first time a layout references them. The command remains useful for pre-populating the whole catalog at once (deep nested paths, UI picklists before first use) and is required when `laravel-exports.schema_sync` is set to `manual`. See [Configuration](../configuration.md#schema-sync).
+
 ## Basic Usage
 
 ```bash
@@ -32,14 +34,14 @@ php artisan export:import-models \
 
 ### Filter Models
 
-Import only specific models:
+The `--filter` option is accepted and logged, but it is not applied yet: every model
+under `--path` is scanned. To import a subset, point `--path` and `--namespace` at a
+subdirectory:
 
 ```bash
-# Import only User-related models
-php artisan export:import-models --filter=*User*
-
-# Import models starting with "Order"
-php artisan export:import-models --filter=Order*
+php artisan export:import-models \
+    --path=app/Models/Billing \
+    --namespace=App\\Models\\Billing
 ```
 
 ### Omit Models
@@ -177,23 +179,27 @@ public function roles(): BelongsToMany
 
 ## Programmatic Import
 
-You can also import models programmatically:
+You can also register a model programmatically:
 
 ```php
 use HexagonLabsLLC\LaravelExports\Models\ExportModel;
-use HexagonLabsLLC\LaravelExports\Services\ExportInspector;
 
 // Register a model manually
 $exportModel = ExportModel::create([
     'title' => 'User',
     'model' => 'App\Models\User',
 ]);
+```
 
-// Sync its relations
-$inspector = new ExportInspector();
-$result = $inspector->syncModelRelations($exportModel);
+Its columns and relationships are discovered on first reference under the default lazy
+sync. To populate them immediately, run the import command or call the sync service:
 
-// Result: ['columns' => 5, 'relations' => 3]
+```bash
+php artisan export:import-models --force
+```
+
+```php
+app(\HexagonLabsLLC\LaravelExports\Services\SchemaSync::class)->syncModel(\App\Models\User::class);
 ```
 
 ## Accessing Registered Models
@@ -252,13 +258,13 @@ $emailRelation = ExportModelRelation::where('export_model_id', $userModel->id)
 Use the `whereNested` scope for nested paths:
 
 ```php
-// Find the posts.comments relation for User
+// Validate the posts.comments chain for User; returns the 'posts' relation row
 $relation = ExportModelRelation::where('export_model_id', $userModel->id)
     ->whereNested('posts.comments')
     ->first();
 ```
 
-The `whereNested` scope traverses the relationship chain to find the correct relation.
+The `whereNested` scope validates the full dot-notation path by traversing the relationship chain, then returns the relation row for the FIRST segment (here `posts`) - not a record holding the full dot path.
 
 ### All Relations for a Model
 
@@ -336,11 +342,12 @@ php artisan export:import-models --deep --omit=AuditLog
 For large applications with many models:
 
 ```bash
-# Import in batches
-php artisan export:import-models --filter=User*
-php artisan export:import-models --filter=Order*
-php artisan export:import-models --filter=Product*
+# Import one directory at a time
+php artisan export:import-models --path=app/Models/Billing --namespace=App\\Models\\Billing
+php artisan export:import-models --path=app/Models/Crm --namespace=App\\Models\\Crm
 ```
+
+Or skip the bulk import and let lazy sync register models as layouts reference them.
 
 ## Best Practices
 

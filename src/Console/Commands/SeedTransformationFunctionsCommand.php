@@ -40,7 +40,7 @@ class SeedTransformationFunctionsCommand extends Command
         foreach ($functions as $functionData) {
             $existing = ExportFunction::where('callable', $functionData['callable'])->first();
 
-            if ($existing && ! $force) {
+            if ($existing && !$force) {
                 $skipped++;
                 $this->line("Skipped: {$functionData['name']} (already exists)");
 

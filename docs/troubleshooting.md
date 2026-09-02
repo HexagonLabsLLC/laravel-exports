@@ -2,42 +2,34 @@
 
 Common issues and solutions when working with Laravel Exports.
 
-## Debug Mode
+## Inspecting the Query
 
-Enable debug mode for detailed logging:
+To see the query an export will run, use `getQuery()`:
 
-```env
-APP_DEBUG=true
+```php
+$query = $service->getQuery($layout, $requestData);
+dd($query->toSql(), $query->getBindings());
 ```
 
-Debug output includes:
-- Column processing details
-- Relation loading status
-- Query execution with bindings
-- Collection filtering results
-- Function execution tracking
-
-### Log Locations
-
-Debug logs are written to Laravel's default log channel:
+Errors and warnings are still written to Laravel's default log channel:
 
 ```
 storage/logs/laravel.log
 ```
 
-To isolate export logs, configure a dedicated channel:
+## Validating a Layout
 
-```php
-// config/logging.php
-'channels' => [
-    'exports' => [
-        'driver' => 'daily',
-        'path' => storage_path('logs/exports.log'),
-        'level' => 'debug',
-        'days' => 14,
-    ],
-],
+Most configuration problems are reported by the built-in validator before you run an
+export. It never writes to the database, so it is safe on replicas and in CI:
+
+```bash
+php artisan export:validate --layout=my_layout
 ```
+
+Missing catalog rows are a special case: under the default `lazy` (and `verify`)
+`schema_sync` mode the catalog fills itself on first reference, so "not found" errors in
+those modes point at a path that does not resolve on the model. In `manual` mode they
+mean the import has not been run. See [Configuration](configuration.md#schema-sync).
 
 ## Common Errors
 
@@ -110,7 +102,8 @@ php artisan export:import-models --deep --deep-level=3
 
 3. Check path validation:
 ```php
-$valid = ModelRelationInspector::validateNestedPath(
+$inspector = app(ModelRelationInspector::class);
+$valid = $inspector->validateNestedPath(
     WorkItem::class,
     'workOrder.customer'
 );
@@ -133,11 +126,10 @@ $valid = ModelRelationInspector::validateNestedPath(
 // Right: 'value_path' => 'user.name'
 ```
 
-2. Verify eager loading:
+2. Verify eager loading by inspecting the built query:
 ```php
-// Enable debug mode and check logs for:
-"Required relations: ['user']"
-"Loading relations: ['user']"
+$query = $service->getQuery($layout, $requestData);
+dd($query->getEagerLoads());
 ```
 
 3. Add aggregator for collections:
@@ -178,7 +170,7 @@ php artisan export:seed-functions --force
 ```php
 // Filter must receive value
 $results = $service->executeExport($layout, [
-    'status' => 'active',  // Must match filter's request_key
+    'status' => 'active',  // Key must match the filter's relation name (or a supported variant)
 ]);
 ```
 
@@ -275,12 +267,12 @@ $relation = ExportModelRelation::where('relation', 'roles')->first();
 
 **Cause:** Data contains invalid UTF-8 characters.
 
-**Solution:**
+**Solution:** Clean the source data before exporting. The JSON handler supports these options: `pretty`, `unescaped_slashes`, `unescaped_unicode`, `wrap_data`, `include_meta`.
 
 ```php
-// Use encoding options
 $service->exportTo($layout, 'json', [], [
-    'options' => JSON_INVALID_UTF8_SUBSTITUTE,
+    'pretty' => true,
+    'unescaped_unicode' => true,
 ]);
 ```
 
@@ -369,7 +361,6 @@ logger("Memory used: " . number_format($used / 1024 / 1024, 2) . " MB");
 
 1. Use streaming for large datasets
 2. Process in smaller chunks
-3. Disable debug mode in production
 
 ## Queue Issues
 
@@ -404,7 +395,7 @@ php artisan queue:retry [job-id]
 
 ```php
 // Clear cache
-Cache::forget("export_status_{$exportId}");
+Cache::forget("export_status:{$exportId}");
 
 // Or check status TTL
 // config/laravel-exports.php
@@ -465,51 +456,23 @@ php artisan vendor:publish \
     --provider="HexagonLabsLLC\LaravelExports\LaravelExportsServiceProvider"
 ```
 
-## Database Connectivity
-
-### Test Connection
-
-Use the built-in command:
-
-```bash
-php artisan export:test-db
-```
-
-This verifies:
-- Database connection
-- All export tables exist
-- Model relations are valid
-
-### Test Specific Model
-
-```bash
-php artisan export:test-db --model=User
-```
-
-### Test Specific Relation
-
-```bash
-php artisan export:test-db --model=User --relation=posts
-```
-
 ## Getting Help
 
 If you're still experiencing issues:
 
-1. Enable debug mode and check logs
-2. Verify your configuration with `export:test-db`
-3. Check the [API Reference](reference/api.md) for correct method signatures
-4. Review [examples](examples/) for working configurations
-5. Report issues at the project repository
+1. Inspect the built query with `getQuery()` and check the logs for errors and warnings
+2. Check the [API Reference](reference/api.md) for correct method signatures
+3. Review [examples](examples/) for working configurations
+4. Report issues at the project repository
 
 ## Quick Checklist
 
 When troubleshooting, verify:
 
-- [ ] Models are imported (`export:import-models`)
+- [ ] Layouts pass `export:validate`
+- [ ] Models are in the catalog - automatic under the default lazy `schema_sync`, otherwise run `export:import-models`
 - [ ] Functions are seeded (`export:seed-functions`)
 - [ ] Migrations have run (`migrate:status`)
-- [ ] Debug mode is enabled for detailed logs
 - [ ] value_path uses correct dot notation
 - [ ] Aggregators are set for collection relations
 - [ ] Request filters receive values

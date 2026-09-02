@@ -6,6 +6,28 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property string $id
+ * @property string $export_layout_id
+ * @property string|null $export_function_id
+ * @property array|null $export_function_values
+ * @property string|null $export_filter_id
+ * @property array|null $export_filter_values
+ * @property string|null $export_model_relation_id
+ * @property string|null $aggregator
+ * @property string|null $title
+ * @property string|null $value_path
+ * @property string|null $default
+ * @property string|null $format
+ * @property int $position
+ * @property bool $is_expanded
+ * @property array|null $expansion_data
+ * @property bool $omit_on_empty
+ * @property-read ExportLayout|null $layout
+ * @property-read ExportModelRelation|null $modelRelation
+ * @property-read ExportFunction|null $exportFunction
+ * @property-read ExportFilter|null $filter
+ */
 class ExportColumn extends Model
 {
     use HasUuids;
@@ -37,6 +59,7 @@ class ExportColumn extends Model
         'title',
         'value_path',
         'default',
+        'format',
         'position',
         'is_expanded',
         'expansion_data',
@@ -62,14 +85,6 @@ class ExportColumn extends Model
     public function layout(): BelongsTo
     {
         return $this->belongsTo(ExportLayout::class, 'export_layout_id');
-    }
-
-    /**
-     * @deprecated Use modelRelation() instead for consistency with other models
-     */
-    public function relation(): BelongsTo
-    {
-        return $this->modelRelation();
     }
 
     public function modelRelation(): BelongsTo

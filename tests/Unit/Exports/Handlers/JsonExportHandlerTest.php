@@ -128,3 +128,12 @@ it('handles various data types', function () {
         ->and($decoded[0]['array'])->toEqual([1, 2, 3])
         ->and($decoded[0]['object'])->toEqual(['key' => 'value']);
 });
+
+it('keeps meta when data wrapping is disabled', function () {
+    $layout = new ExportLayout(['title' => 'Test Layout']);
+    $handler = new JsonExportHandler($layout, ['include_meta' => true, 'wrap_data' => false]);
+
+    $decoded = json_decode($handler->export(Collection::make([['name' => 'John Doe']])), true);
+
+    expect(array_keys($decoded))->toBe(['meta', 'data']);
+});

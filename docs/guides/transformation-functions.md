@@ -1,6 +1,6 @@
 # Transformation Functions
 
-Transformation functions format and modify column values during export. The package includes 22 built-in functions.
+Transformation functions format and modify column values during export. The package includes 23 built-in functions.
 
 ## Setup
 
@@ -33,24 +33,24 @@ ExportColumn::create([
     'title' => 'Joined',
     'value_path' => 'created_at',
     'export_function_id' => $formatDate->id,
-    'export_function_values' => json_encode(['F j, Y']),  // Parameters
+    'export_function_values' => [null, 'F j, Y'],  // Parameters
     'position' => 1,
 ]);
 ```
 
 ### Function Parameters
 
-Pass parameters as JSON array in `export_function_values`:
+Pass parameters as a plain PHP array in `export_function_values`. Parameters are positional: the column value is injected at the function's value position (index 0 for every built-in function), so put `null` in that slot and start configured parameters at index 1:
 
 ```php
-// Single parameter
-'export_function_values' => json_encode(['Y-m-d'])
+// Single parameter (Format Date: format)
+'export_function_values' => [null, 'Y-m-d']
 
-// Multiple parameters
-'export_function_values' => json_encode([100, '...'])
+// Multiple parameters (Truncate: length, suffix)
+'export_function_values' => [null, 100, '...']
 
-// Named parameters (some functions)
-'export_function_values' => json_encode(['USD', 'en_US'])
+// Multiple parameters (Format Currency: currency, locale)
+'export_function_values' => [null, 'USD', 'en_US']
 ```
 
 ## Date/Time Functions
@@ -66,7 +66,7 @@ ExportColumn::create([
     'title' => 'Order Date',
     'value_path' => 'created_at',
     'export_function_id' => $formatDate->id,
-    'export_function_values' => json_encode(['F j, Y']),  // "January 1, 2025"
+    'export_function_values' => [null, 'F j, Y'],  // "January 1, 2025"
 ]);
 ```
 
@@ -93,6 +93,25 @@ ExportColumn::create([
 
 **Output:** "2 hours ago", "3 days ago", "1 week ago"
 
+### Format Timestamp
+
+Format a timestamp with timezone conversion.
+
+```php
+$formatTimestamp = ExportFunction::where('name', 'Format Timestamp')->first();
+
+ExportColumn::create([
+    'title' => 'Created (Eastern)',
+    'value_path' => 'created_at',
+    'export_function_id' => $formatTimestamp->id,
+    'export_function_values' => [null, 'Y-m-d H:i:s', 'America/New_York'],
+]);
+```
+
+**Parameters:**
+1. Format (default: `Y-m-d H:i:s`)
+2. Timezone (default: `UTC`)
+
 ### Date Difference
 
 Calculate difference between dates.
@@ -104,7 +123,7 @@ ExportColumn::create([
     'title' => 'Days Since Registration',
     'value_path' => 'created_at',
     'export_function_id' => $dateDiff->id,
-    'export_function_values' => json_encode([null, 'days']),  // Compare to now
+    'export_function_values' => [null, null, 'days'],  // Compare to now
 ]);
 ```
 
@@ -155,7 +174,7 @@ ExportColumn::create([
     'title' => 'Description',
     'value_path' => 'description',
     'export_function_id' => $truncate->id,
-    'export_function_values' => json_encode([100, '...']),
+    'export_function_values' => [null, 100, '...'],
 ]);
 ```
 
@@ -176,7 +195,7 @@ ExportColumn::create([
     'title' => 'URL Slug',
     'value_path' => 'title',
     'export_function_id' => $slug->id,
-    'export_function_values' => json_encode(['-']),
+    'export_function_values' => [null, '-'],
 ]);
 ```
 
@@ -193,7 +212,7 @@ ExportColumn::create([
     'title' => 'Clean Phone',
     'value_path' => 'phone',
     'export_function_id' => $replace->id,
-    'export_function_values' => json_encode(['-', '']),  // Remove dashes
+    'export_function_values' => [null, '-', ''],  // Remove dashes
 ]);
 ```
 
@@ -212,7 +231,7 @@ ExportColumn::create([
     'title' => 'Domain',
     'value_path' => 'email',
     'export_function_id' => $extract->id,
-    'export_function_values' => json_encode(['/@(.+)$/']),
+    'export_function_values' => [null, '/@(.+)$/'],
 ]);
 ```
 
@@ -231,7 +250,7 @@ ExportColumn::create([
     'title' => 'Quantity',
     'value_path' => 'quantity',
     'export_function_id' => $formatNumber->id,
-    'export_function_values' => json_encode([0, ',']),  // No decimals, comma separator
+    'export_function_values' => [null, 0, ','],  // No decimals, comma separator
 ]);
 ```
 
@@ -252,7 +271,7 @@ ExportColumn::create([
     'title' => 'Total',
     'value_path' => 'total',
     'export_function_id' => $formatCurrency->id,
-    'export_function_values' => json_encode(['USD', 'en_US']),
+    'export_function_values' => [null, 'USD', 'en_US'],
 ]);
 ```
 
@@ -273,7 +292,7 @@ ExportColumn::create([
     'title' => 'Average',
     'value_path' => 'average_score',
     'export_function_id' => $round->id,
-    'export_function_values' => json_encode([2]),
+    'export_function_values' => [null, 2],
 ]);
 ```
 
@@ -290,7 +309,7 @@ ExportColumn::create([
     'title' => 'Completion',
     'value_path' => 'progress',  // Stored as 0.75
     'export_function_id' => $percentage->id,
-    'export_function_values' => json_encode([1]),
+    'export_function_values' => [null, 1],
 ]);
 ```
 
@@ -309,7 +328,7 @@ ExportColumn::create([
     'title' => 'Active',
     'value_path' => 'is_active',
     'export_function_id' => $booleanText->id,
-    'export_function_values' => json_encode(['Yes', 'No']),
+    'export_function_values' => [null, 'Yes', 'No'],
 ]);
 ```
 
@@ -335,7 +354,7 @@ ExportColumn::create([
     'title' => 'Settings Theme',
     'value_path' => 'settings',  // JSON column
     'export_function_id' => $jsonExtract->id,
-    'export_function_values' => json_encode(['appearance.theme']),
+    'export_function_values' => [null, 'appearance.theme'],
 ]);
 ```
 
@@ -353,7 +372,7 @@ ExportColumn::create([
     'title' => 'Tags',
     'value_path' => 'tags',  // Array column
     'export_function_id' => $arrayJoin->id,
-    'export_function_values' => json_encode([', ']),
+    'export_function_values' => [null, ', '],
 ]);
 ```
 
@@ -390,7 +409,7 @@ ExportColumn::create([
     'title' => 'Company',
     'value_path' => 'company_name',
     'export_function_id' => $defaultValue->id,
-    'export_function_values' => json_encode(['N/A']),
+    'export_function_values' => [null, 'N/A'],
 ]);
 ```
 
@@ -407,7 +426,7 @@ ExportColumn::create([
     'title' => 'Full Name',
     'value_path' => 'first_name',
     'export_function_id' => $concatenate->id,
-    'export_function_values' => json_encode(['last_name', ' ']),  // {first_name} {last_name}
+    'export_function_values' => [null, 'last_name', ' '],  // {first_name} {last_name}
 ]);
 ```
 
@@ -424,7 +443,7 @@ ExportColumn::create([
     'title' => 'ID Hash',
     'value_path' => 'id',
     'export_function_id' => $hash->id,
-    'export_function_values' => json_encode(['sha256']),
+    'export_function_values' => [null, 'sha256'],
 ]);
 ```
 
@@ -441,7 +460,7 @@ ExportColumn::create([
     'title' => 'Phone',
     'value_path' => 'phone',
     'export_function_id' => $mask->id,
-    'export_function_values' => json_encode([4, '*']),
+    'export_function_values' => [null, 4, '*'],
 ]);
 ```
 
@@ -491,6 +510,7 @@ class ExportFunctions
 |------|------------|----------------|
 | Format Date | format | "January 1, 2025" |
 | Format Date Human | - | "2 hours ago" |
+| Format Timestamp | format, timezone | "2025-01-01 10:30:00" |
 | Date Difference | date2, unit | 30 |
 | Uppercase | - | "HELLO" |
 | Lowercase | - | "hello" |

@@ -1,6 +1,7 @@
 <?php
 
 use HexagonLabsLLC\LaravelExports\Models\ExportModel;
+use HexagonLabsLLC\LaravelExports\Models\ExportModelRelation;
 use HexagonLabsLLC\LaravelExports\Tests\TestModels\Comment;
 use HexagonLabsLLC\LaravelExports\Tests\TestModels\Post;
 use HexagonLabsLLC\LaravelExports\Tests\TestModels\User;
@@ -10,6 +11,55 @@ beforeEach(function () {
     // The package root, not testbench's base_path()
     $this->testModelsPath = realpath(__DIR__.'/../../TestModels');
     $this->testModelsNamespace = 'HexagonLabsLLC\\LaravelExports\\Tests\\TestModels';
+});
+
+it('discovers nested relation paths with deep discovery', function () {
+    Artisan::call('export:import-models', [
+        '--path' => $this->testModelsPath,
+        '--namespace' => $this->testModelsNamespace,
+        '--deep' => true,
+        '--deep-level' => 3,
+    ]);
+
+    $userModel = ExportModel::where('model', User::class)->first();
+    $commentModel = ExportModel::where('model', Comment::class)->first();
+    $rows = $userModel->relations()->get();
+
+    $postsComments = $rows->firstWhere('relation', 'posts.comments');
+
+    expect($postsComments)->not->toBeNull()
+        ->and($postsComments->is_collection)->toBeTrue()
+        ->and($postsComments->related_model_id)->toBe($commentModel->id)
+        ->and($postsComments->title)->toBe('Posts > Comments')
+        ->and($rows->firstWhere('relation', 'comments.post')->is_collection)->toBeFalse()
+        ->and($rows->firstWhere('relation', 'posts.comments.user'))->not->toBeNull()
+        ->and($rows->firstWhere('relation', 'posts.comments.post'))->toBeNull()
+        ->and($rows->filter(fn ($row) => substr_count($row->relation, '.') >= 3))->toHaveCount(0);
+
+    $count = ExportModelRelation::count();
+
+    Artisan::call('export:import-models', [
+        '--path' => $this->testModelsPath,
+        '--namespace' => $this->testModelsNamespace,
+        '--deep' => true,
+        '--deep-level' => 3,
+    ]);
+
+    expect(ExportModelRelation::count())->toBe($count);
+});
+
+it('imports only models matching the filter pattern', function () {
+    Artisan::call('export:import-models', [
+        '--path' => $this->testModelsPath,
+        '--namespace' => $this->testModelsNamespace,
+        '--filter' => '*User*',
+    ]);
+
+    // Related models may exist as lazily created stubs; only fully imported
+    // models carry a schema hash
+    expect(ExportModel::where('model', User::class)->whereNotNull('schema_hash')->exists())->toBeTrue()
+        ->and(ExportModel::where('model', Post::class)->whereNotNull('schema_hash')->exists())->toBeFalse()
+        ->and(ExportModel::where('model', Comment::class)->whereNotNull('schema_hash')->exists())->toBeFalse();
 });
 
 it('can import models from default directory', function () {

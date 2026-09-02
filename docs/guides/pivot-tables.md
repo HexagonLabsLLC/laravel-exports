@@ -48,7 +48,8 @@ public function users(): BelongsToMany
 
 ### Import Models
 
-Run import to detect pivot columns:
+Pivot columns are detected whenever the model is synced, which under the default lazy
+mode happens on first reference. To populate them up front, run the import:
 
 ```bash
 php artisan export:import-models --force
@@ -99,14 +100,20 @@ public function roles(): BelongsToMany
 ### Create Export
 
 ```php
-use HexagonLabsLLC\LaravelExports\Models\{ExportModel, ExportLayout, ExportColumn};
+use HexagonLabsLLC\LaravelExports\Models\{ExportModel, ExportLayout, ExportColumn, ExportModelRelation};
 
 // Get models
 $userModel = ExportModel::where('title', 'User')->first();
 
+// Relation record for the roles collection (needed so pivot columns are eager loaded)
+$rolesRelation = ExportModelRelation::where('export_model_id', $userModel->id)
+    ->where('relation', 'roles')
+    ->first();
+
 // Create layout
 $layout = ExportLayout::create([
     'export_model_id' => $userModel->id,
+    'name' => 'user_roles_export',
     'title' => 'User Roles Export',
 ]);
 
@@ -137,6 +144,7 @@ ExportColumn::create([
 // Pivot: when role was assigned
 ExportColumn::create([
     'export_layout_id' => $layout->id,
+    'export_model_relation_id' => $rolesRelation->id,
     'title' => 'Role Assigned',
     'value_path' => 'roles.pivot.assigned_at',
     'aggregator' => 'first',
@@ -146,6 +154,7 @@ ExportColumn::create([
 // Pivot: when role expires
 ExportColumn::create([
     'export_layout_id' => $layout->id,
+    'export_model_relation_id' => $rolesRelation->id,
     'title' => 'Role Expires',
     'value_path' => 'roles.pivot.expires_at',
     'aggregator' => 'first',
@@ -171,6 +180,7 @@ Since BelongsToMany returns a collection, use aggregators:
 ExportColumn::create([
     'title' => 'First Role Assigned',
     'value_path' => 'roles.pivot.assigned_at',
+    'export_model_relation_id' => $rolesRelation->id,
     'aggregator' => 'first',
 ]);
 ```
@@ -194,39 +204,39 @@ ExportColumn::create([
     'title' => 'All Roles',
     'value_path' => 'roles.name',
     'export_function_id' => $arrayJoinFunction->id,
-    'export_function_values' => json_encode([', ']),
+    'export_function_values' => [null, ', '],
 ]);
 ```
 
 ## Filtering Pivot Data
 
-Filter to get specific pivot items:
+Column filters with regular operators (anything other than `relation`) constrain
+the MAIN query - they limit which users appear in the export, not which role is
+extracted from the collection:
 
 ```php
-// Create filter for active roles (not expired)
-$activeFilter = ExportFilter::create([
-    'export_layout_id' => $layout->id,
-    'export_model_relation_id' => $expiresAtRelation->id,
-    'operator' => 'null',  // expires_at is null (never expires)
-]);
-
-// Or not expired yet
+// Restrict the export to users with a role that has not expired yet
 $notExpiredFilter = ExportFilter::create([
     'export_layout_id' => $layout->id,
     'export_model_relation_id' => $expiresAtRelation->id,
     'operator' => '>',
     'value' => now()->toDateString(),
-    'value_type' => 'date',
+    'value_type' => 'string',
 ]);
 
-// Column with filter
+// The column still extracts the FIRST role from the full collection
 ExportColumn::create([
     'title' => 'Active Role',
     'value_path' => 'roles.name',
+    'export_model_relation_id' => $rolesRelation->id,
     'export_filter_id' => $notExpiredFilter->id,
     'aggregator' => 'first',
 ]);
 ```
+
+To extract only matching items from the collection itself, use a filter with the
+`relation` operator instead. See the
+[Collection Filtering example](../examples/advanced/collection-filtering.md).
 
 ## Pivot with Transformation
 
@@ -238,9 +248,10 @@ $formatDate = ExportFunction::where('name', 'Format Date')->first();
 ExportColumn::create([
     'title' => 'Assigned Date',
     'value_path' => 'roles.pivot.assigned_at',
+    'export_model_relation_id' => $rolesRelation->id,
     'aggregator' => 'first',
     'export_function_id' => $formatDate->id,
-    'export_function_values' => json_encode(['F j, Y']),
+    'export_function_values' => [null, 'F j, Y'],
 ]);
 ```
 
@@ -255,6 +266,11 @@ public function members(): BelongsToMany
     return $this->belongsToMany(User::class, 'project_members')
         ->withPivot(['role', 'joined_at', 'is_lead']);
 }
+
+// Relation record for the members collection
+$membersRelation = ExportModelRelation::where('export_model_id', $projectModel->id)
+    ->where('relation', 'members')
+    ->first();
 
 // Export columns
 ExportColumn::create([
@@ -273,6 +289,7 @@ ExportColumn::create([
 ExportColumn::create([
     'title' => 'Lead Name',
     'value_path' => 'members.name',
+    'export_model_relation_id' => $membersRelation->id,
     'export_filter_id' => $isLeadFilter->id,  // pivot.is_lead = true
     'aggregator' => 'first',
     'position' => 3,
@@ -281,6 +298,7 @@ ExportColumn::create([
 ExportColumn::create([
     'title' => 'Lead Since',
     'value_path' => 'members.pivot.joined_at',
+    'export_model_relation_id' => $membersRelation->id,
     'export_filter_id' => $isLeadFilter->id,
     'aggregator' => 'first',
     'export_function_id' => $formatDate->id,
@@ -307,7 +325,7 @@ dump($rolesRelation->pivot_columns);     // ['assigned_at', 'expires_at']
 ### Pivot Data Not Available
 
 1. **Check withPivot()**: Ensure the relationship includes `withPivot()`
-2. **Re-import models**: Run `php artisan export:import-models --force`
+2. **Re-sync the model**: `php artisan export:import-models --force`, or set `schema_sync` to `verify` so a changed model re-syncs itself
 3. **Verify column names**: Check `pivot_columns` matches your pivot table
 
 ### Empty Values

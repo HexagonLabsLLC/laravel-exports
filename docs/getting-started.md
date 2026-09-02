@@ -4,8 +4,8 @@ This guide walks you through installing Laravel Exports and creating your first 
 
 ## Requirements
 
-- PHP 8.1 or higher
-- Laravel 10.0 or higher
+- PHP 8.2 or higher
+- Laravel 12.12+ or 13
 - Database with UUID support:
   - MySQL 5.7+
   - PostgreSQL 9.4+
@@ -46,9 +46,12 @@ This creates the following tables:
 - `export_sorts`
 - `export_functions`
 
-### 3. Import Your Models
+### 3. Import Your Models (Optional)
 
-Discover and register your Eloquent models:
+Under the default `lazy` schema sync mode you can skip this step entirely: a model and
+its relation paths are reflected and registered the first time a layout references them.
+Run the command when you want the whole catalog populated up front (for example to feed
+UI picklists), or when `laravel-exports.schema_sync` is set to `manual`.
 
 ```bash
 php artisan export:import-models
@@ -70,14 +73,11 @@ php artisan export:import-models --deep --deep-level=3
 
 # Force re-import existing models
 php artisan export:import-models --force
-
-# Filter by pattern
-php artisan export:import-models --filter=*User*
 ```
 
 ### 4. Seed Transformation Functions
 
-Add the 22 built-in transformation functions:
+Add the 23 built-in transformation functions:
 
 ```bash
 php artisan export:seed-functions
@@ -99,8 +99,20 @@ $userModel = ExportModel::where('title', 'User')->first();
 // Create an export layout
 $layout = ExportLayout::create([
     'export_model_id' => $userModel->id,
+    'name' => 'active_users_export',
     'title' => 'Active Users Export',
     'description' => 'Export all active users',
+]);
+```
+
+If you skipped the import step, name the model class instead and let lazy sync register
+it (`model` wins over `export_model_id` when both are set):
+
+```php
+$layout = ExportLayout::create([
+    'model' => \App\Models\User::class,
+    'name' => 'active_users_export',
+    'title' => 'Active Users Export',
 ]);
 ```
 
@@ -159,7 +171,8 @@ Filter the exported data:
 use HexagonLabsLLC\LaravelExports\Models\ExportFilter;
 use HexagonLabsLLC\LaravelExports\Models\ExportModelRelation;
 
-// Get the status relation (column)
+// Get the status relation (column). $layout->resolveRelationRow('status') does the
+// same lookup and lazily registers the row when it is not in the catalog yet.
 $statusRelation = ExportModelRelation::where('export_model_id', $userModel->id)
     ->where('relation', 'status')
     ->first();
@@ -213,7 +226,7 @@ $joinedColumn = ExportColumn::where('export_layout_id', $layout->id)
 
 $joinedColumn->update([
     'export_function_id' => $formatDate->id,
-    'export_function_values' => json_encode(['F j, Y']), // "January 1, 2025"
+    'export_function_values' => [null, 'F j, Y'], // "January 1, 2025"
 ]);
 ```
 

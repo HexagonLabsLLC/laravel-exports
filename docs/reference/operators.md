@@ -40,7 +40,7 @@ Value greater than specified.
 ExportFilter::create([
     'operator' => '>',
     'value' => 100,
-    'value_type' => 'number',
+    'value_type' => 'integer',
 ]);
 ```
 
@@ -54,7 +54,7 @@ Value less than specified.
 ExportFilter::create([
     'operator' => '<',
     'value' => 50,
-    'value_type' => 'number',
+    'value_type' => 'integer',
 ]);
 ```
 
@@ -68,7 +68,7 @@ Value greater than or equal to specified.
 ExportFilter::create([
     'operator' => '>=',
     'value' => 18,
-    'value_type' => 'number',
+    'value_type' => 'integer',
 ]);
 ```
 
@@ -82,7 +82,7 @@ Value less than or equal to specified.
 ExportFilter::create([
     'operator' => '<=',
     'value' => 100,
-    'value_type' => 'number',
+    'value_type' => 'integer',
 ]);
 ```
 
@@ -112,6 +112,9 @@ $requestData = ['status' => ['active', 'pending']];
 // As comma-separated string (auto-converted)
 $requestData = ['status' => 'active,pending'];
 ```
+
+The comma-separated form is coerced to an array for the `in`, `not_in`, and `between`
+operators, for both layout filters and column-attached filters.
 
 ### Not In (`not_in`)
 
@@ -245,6 +248,11 @@ ExportFilter::create([
 
 **Use:** Extracts specific items from related collections for column values.
 
+The canonical `value` is a four-element array, `[relation, path, operator, expected]`,
+compared against each item of the column's collection relation. A scalar `value` also
+works - the filter's own relation row supplies the comparison path, as below. Only a
+malformed array value (fewer than three elements) fails validation.
+
 **Example:** Get only "Container" type identifiers from a collection of identifiers.
 
 ```php
@@ -258,6 +266,7 @@ $containerFilter = ExportFilter::create([
 
 // Column uses this filter to extract
 ExportColumn::create([
+    'export_model_relation_id' => $identifiersRelation->id,  // the collection relation
     'export_filter_id' => $containerFilter->id,
     'title' => 'Container ID',
     'value_path' => 'identifiers.value',
@@ -271,10 +280,10 @@ ExportColumn::create([
 |----------|-------------|------------|----------------|
 | `=` | Equals | Any | `= value` |
 | `!=` | Not equals | Any | `!= value` |
-| `>` | Greater than | number, date | `> value` |
-| `<` | Less than | number, date | `< value` |
-| `>=` | Greater or equal | number, date | `>= value` |
-| `<=` | Less or equal | number, date | `<= value` |
+| `>` | Greater than | integer, float, string (dates) | `> value` |
+| `<` | Less than | integer, float, string (dates) | `< value` |
+| `>=` | Greater or equal | integer, float, string (dates) | `>= value` |
+| `<=` | Less or equal | integer, float, string (dates) | `<= value` |
 | `in` | In array | array | `IN (...)` |
 | `not_in` | Not in array | array | `NOT IN (...)` |
 | `between` | Between values | array [2] | `BETWEEN ... AND ...` |
@@ -286,35 +295,53 @@ ExportColumn::create([
 
 ## Value Types
 
+`value_type` is stored on the filter and validated by `export:validate`; only these
+five values are recognized. At runtime it only changes behavior for `array`, which
+tells the service to JSON-decode the stored value. Dates are stored as strings.
+
 | Type | Description | Example |
 |------|-------------|---------|
-| `string` | Text value | `"active"` |
-| `number` | Numeric value | `100` |
+| `string` | Text value (including dates) | `"active"`, `"2024-01-01"` |
+| `integer` | Whole number | `100` |
+| `float` | Decimal number | `19.99` |
 | `boolean` | True/false | `true` |
 | `array` | JSON array | `["a", "b"]` |
-| `date` | Date string | `"2024-01-01"` |
 
 ## Logical Operators
 
-Combine filters with AND/OR:
+Filters apply in creation order (`export_filters` rows ordered by id, then any layout
+`filter_definitions` entries). An `or` filter groups with the filter **before** it, and
+any run of consecutive `or` filters extends that same group. Groups are then ANDed
+together, so an or-pair can never disjoin an unrelated scoping filter:
 
 ```php
-// Filter 1: status = 'active' AND
+// Filter 1: status = 'active'
 ExportFilter::create([
     'operator' => '=',
     'value' => 'active',
     'logical_operator' => 'AND',
 ]);
 
-// Filter 2: OR status = 'pending'
+// Filter 2: OR status = 'pending' - groups with filter 1
 ExportFilter::create([
     'operator' => '=',
     'value' => 'pending',
     'logical_operator' => 'OR',
 ]);
+
+// Filter 3: AND created_at >= '2024-01-01' - starts a new group
+ExportFilter::create([
+    'operator' => '>=',
+    'value' => '2024-01-01',
+    'logical_operator' => 'AND',
+]);
 ```
 
-**Result:** `WHERE status = 'active' OR status = 'pending'`
+**Result:** `WHERE (status = 'active' OR status = 'pending') AND created_at >= '2024-01-01'`
+
+In short: `A, or B, C` produces `(A OR B) AND C`. An `or` on the first filter has
+nothing to attach to, so it starts a group like an `and` would (`export:validate`
+reports this as a warning).
 
 ## Operator Methods
 

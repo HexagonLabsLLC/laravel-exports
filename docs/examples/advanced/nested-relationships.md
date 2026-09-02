@@ -74,7 +74,9 @@ class Contact extends Model
 
 ## Setup
 
-### 1. Import with Deep Discovery
+### 1. Import with Deep Discovery (Optional)
+
+Lazy sync registers these paths on first reference; run the import to pre-populate them.
 
 ```bash
 php artisan export:import-models --deep --deep-level=4
@@ -89,6 +91,7 @@ $workItemModel = ExportModel::where('title', 'WorkItem')->first();
 
 $layout = ExportLayout::create([
     'export_model_id' => $workItemModel->id,
+    'name' => 'work_items_with_full_customer_details',
     'title' => 'Work Items with Full Customer Details',
 ]);
 ```
@@ -185,6 +188,7 @@ ExportFilter::create([
 $customerIdRelation = ExportModelRelation::create([
     'export_model_id' => $workItemModel->id,
     'relation' => 'workOrder.customer.id',
+    'title' => 'Customer ID',
     'is_column' => true,
 ]);
 
@@ -204,12 +208,17 @@ $service->executeExport($layout, [
 
 ## Sorting by Nested Columns
 
+Nested-path sorting uses a single correlated subquery on the FIRST segment of the path (here `workOrder`), sorting by that related model's `id` unless the relation's `metadata` `sort_column` is set. It does not build multi-level joins to the deeper segments:
+
 ```php
 use HexagonLabsLLC\LaravelExports\Models\ExportSort;
 
 $customerNameRelation = ExportModelRelation::where('export_model_id', $workItemModel->id)
-    ->whereNested('workOrder.customer.name')
+    ->where('relation', 'workOrder.customer.name')
     ->first();
+
+// Optional: sort the subquery by a specific column of the first segment
+$customerNameRelation->update(['metadata' => ['sort_column' => 'customer_id']]);
 
 ExportSort::create([
     'export_layout_id' => $layout->id,
@@ -263,22 +272,16 @@ $query->with([
 
 This is optimized to prevent N+1 queries but can be slow with very deep nesting or large datasets.
 
-## Debug Mode
+## Debugging
 
-Enable to see path traversal:
+Use `getQuery()` to inspect the built query and its eager loads before executing:
 
-```env
-APP_DEBUG=true
+```php
+$query = $service->getQuery($layout, $requestData);
+dd($query->toSql(), $query->getEagerLoads());
 ```
 
-**Log output:**
-```
-[INFO] Extracting value for: workOrder.customer.contact.org_name
-[INFO] Traversing: workOrder -> WorkOrder #1
-[INFO] Traversing: customer -> Customer #1
-[INFO] Traversing: contact -> Contact #1
-[INFO] Extracting attribute: org_name -> "Acme Corporation"
-```
+Errors and warnings are still written to the log.
 
 ## Notes
 

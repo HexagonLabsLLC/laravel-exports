@@ -6,7 +6,6 @@ use HexagonLabsLLC\LaravelExports\Enums\OperatorType;
 use HexagonLabsLLC\LaravelExports\Models\ExportColumn;
 use HexagonLabsLLC\LaravelExports\Models\ExportModel;
 use HexagonLabsLLC\LaravelExports\Services\DynamicExportService;
-use HexagonLabsLLC\LaravelExports\Services\ExportInspector;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
@@ -89,31 +88,12 @@ class ValidationTest extends TestCase
     }
 
     #[Test]
-    public function export_inspector_uses_correct_table_names()
-    {
-        $reflection = new ReflectionClass(ExportInspector::class);
-
-        // Check that the class has the updated method
-        $this->assertTrue($reflection->hasMethod('syncModelRelations'));
-
-        // Read the source to ensure no references to old table names
-        $source = file_get_contents($reflection->getFileName());
-
-        $this->assertStringNotContainsString('export_entities', $source);
-        $this->assertStringNotContainsString('export_entity_relations', $source);
-        $this->assertStringContainsString('export_models', $source);
-        $this->assertStringContainsString('export_model_relations', $source);
-    }
-
-    #[Test]
     public function operator_type_enum_has_correct_methods()
     {
         $reflection = new ReflectionClass(OperatorType::class);
 
-        // Check that the enum has the required static methods
         $this->assertTrue($reflection->hasMethod('getOperator'));
         $this->assertTrue($reflection->hasMethod('getCallable'));
-        $this->assertTrue($reflection->hasMethod('builder'));
 
         // Check for json_contains and relation support in getCallable
         $jsonContainsCallable = OperatorType::getCallable('json_contains', false);

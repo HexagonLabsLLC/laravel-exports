@@ -5,22 +5,26 @@ namespace HexagonLabsLLC\LaravelExports\Exports;
 use HexagonLabsLLC\LaravelExports\Exports\Handlers\CsvExportHandler;
 use HexagonLabsLLC\LaravelExports\Exports\Handlers\ExportHandler;
 use HexagonLabsLLC\LaravelExports\Exports\Handlers\JsonExportHandler;
+use HexagonLabsLLC\LaravelExports\Exports\Handlers\XlsxExportHandler;
 use HexagonLabsLLC\LaravelExports\Models\ExportLayout;
 
 class ExportFactory
 {
     /**
-     * Registered export handlers
+     * Registered export handlers. xlsx needs the optional
+     * phpoffice/phpspreadsheet package; its handler throws with
+     * install instructions when the package is absent.
      */
     protected static array $handlers = [
         'csv' => CsvExportHandler::class,
         'json' => JsonExportHandler::class,
+        'xlsx' => XlsxExportHandler::class,
     ];
 
     /**
      * Create an export handler instance
      *
-     * @param  string  $format  The export format (csv, json)
+     * @param  string  $format  The export format (csv, json, xlsx)
      * @param  ExportLayout  $layout  The export layout
      * @param  array  $options  Handler-specific options
      *
@@ -30,7 +34,7 @@ class ExportFactory
     {
         $format = strtolower($format);
 
-        if (! isset(self::$handlers[$format])) {
+        if (!isset(self::$handlers[$format])) {
             throw new \InvalidArgumentException("Unsupported export format: {$format}. Supported formats: ".implode(', ', array_keys(self::$handlers)));
         }
 
@@ -47,7 +51,7 @@ class ExportFactory
      */
     public static function register(string $format, string $handlerClass): void
     {
-        if (! is_subclass_of($handlerClass, ExportHandler::class)) {
+        if (!is_subclass_of($handlerClass, ExportHandler::class)) {
             throw new \InvalidArgumentException('Handler class must extend '.ExportHandler::class);
         }
 
