@@ -195,12 +195,16 @@ class DynamicExportService
         $this->filters = $layout->filters()
             ->with(['modelRelation'])
             ->whereNotIn('id', $columnFilterIds)
-            ->get();
+            ->get()
+            ->concat($layout->buildDefinedFilters());
 
         $this->sorts = $layout->sorts()
             ->with(['modelRelation'])
             ->orderBy('priority')
-            ->get();
+            ->get()
+            ->concat($layout->buildDefinedSorts())
+            ->sortBy('priority')
+            ->values();
         // Load model relations
         $this->relations = $this->exportModel->relations;
         // Validate layout configuration

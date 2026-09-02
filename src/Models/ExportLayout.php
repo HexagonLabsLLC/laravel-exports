@@ -213,6 +213,75 @@ class ExportLayout extends Model
     }
 
     /**
+     * Build unsaved ExportFilter models from the filter_definitions JSON field.
+     * Entry shape: {path, operator, value, value_type?, logical_operator?,
+     * is_request?, is_required?, column?}.
+     */
+    public function buildDefinedFilters(): Collection
+    {
+        if (empty($this->filter_definitions)) {
+            return new Collection;
+        }
+
+        $models = new Collection;
+
+        foreach ($this->filter_definitions as $definition) {
+            $row = $this->resolveRelationRow($definition['path']);
+
+            $filter = new ExportFilter(collect($definition)
+                ->only(['operator', 'value', 'value_type', 'logical_operator', 'is_request', 'is_required'])
+                ->put('export_layout_id', $this->id)
+                ->put('export_model_relation_id', $row->id)
+                ->all());
+
+            if (!empty($definition['column'])) {
+                $row = clone $row;
+                $row->column = $definition['column'];
+            }
+
+            $filter->setRelation('modelRelation', $row);
+            $models->push($filter);
+        }
+
+        return $models;
+    }
+
+    /**
+     * Build unsaved ExportSort models from the sort_definitions JSON field.
+     * Entry shape: {path, direction?, priority?, sort_column?}. Sorts without
+     * a priority slot in after persisted sorts.
+     */
+    public function buildDefinedSorts(): Collection
+    {
+        if (empty($this->sort_definitions)) {
+            return new Collection;
+        }
+
+        $models = new Collection;
+
+        foreach ($this->sort_definitions as $i => $definition) {
+            $row = $this->resolveRelationRow($definition['path']);
+
+            $sort = new ExportSort([
+                'export_layout_id' => $this->id,
+                'export_model_relation_id' => $row->id,
+                'direction' => $definition['direction'] ?? 'asc',
+                'priority' => $definition['priority'] ?? 1000 + $i,
+            ]);
+
+            if (!empty($definition['sort_column'])) {
+                $row = clone $row;
+                $row->metadata = ['sort_column' => $definition['sort_column']];
+            }
+
+            $sort->setRelation('modelRelation', $row);
+            $models->push($sort);
+        }
+
+        return $models;
+    }
+
+    /**
      * Normalize one addColumns/column_definitions entry into ExportColumn attributes.
      */
     protected function normalizeColumnDefinition(int|string $title, array|string $definition, int &$position): array

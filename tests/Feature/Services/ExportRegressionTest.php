@@ -524,6 +524,63 @@ it('lazily syncs referenced nested paths instead of ad hoc inserts', function ()
     expect(ExportModelRelation::where('relation', 'tags.category')->exists())->toBeTrue();
 });
 
+it('applies filter definitions from the layout row', function () {
+    ExportModelRelation::query()->delete();
+    ExportModel::query()->delete();
+
+    $layout = ExportLayout::create([
+        'model' => Post::class,
+        'name' => 'filtered_definitions',
+        'column_definitions' => ['Title' => 'title'],
+        'filter_definitions' => [
+            ['path' => 'published', 'operator' => '=', 'value' => true],
+            ['path' => 'user.name', 'operator' => '=', 'value' => 'John Doe'],
+            ['path' => 'tags', 'operator' => '=', 'value' => '120', 'column' => 'value'],
+        ],
+    ]);
+
+    $result = $this->service->executeExport($layout->id)->toArray();
+
+    expect($result)->toHaveCount(1)
+        ->and($result[0]['Title'])->toBe('First Post');
+});
+
+it('applies required request filters defined on the layout row', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->postExportModel->id,
+        'name' => 'request_definitions',
+        'column_definitions' => ['Title' => 'title'],
+        'filter_definitions' => [
+            ['path' => 'user.name', 'operator' => '=', 'is_request' => true, 'is_required' => true],
+        ],
+    ]);
+
+    $result = $this->service->executeExport($layout->id, ['user.name' => 'Jane Smith'])->toArray();
+
+    expect($result)->toHaveCount(1)
+        ->and($result[0]['Title'])->toBe('Third Post');
+
+    expect(fn () => $this->service->executeExport($layout->id))
+        ->toThrow(Exception::class, 'Required filter');
+});
+
+it('applies sort definitions from the layout row', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->postExportModel->id,
+        'name' => 'sorted_definitions',
+        'column_definitions' => ['Title' => 'title'],
+        'sort_definitions' => [
+            ['path' => 'user', 'sort_column' => 'name'],
+            ['path' => 'title', 'direction' => 'desc'],
+        ],
+    ]);
+
+    $result = $this->service->executeExport($layout->id)->toArray();
+
+    expect(collect($result)->pluck('Title')->all())
+        ->toBe(['Third Post', 'Second Post', 'First Post']);
+});
+
 it('formats column values with the {value} template', function () {
     $layout = ExportLayout::create([
         'export_model_id' => $this->postExportModel->id,
