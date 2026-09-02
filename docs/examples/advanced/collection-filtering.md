@@ -38,27 +38,27 @@ class IdentifierType extends Model
 
 ```php
 // work_items
-[
+$workItems = [
     ['id' => 1, 'title' => 'Shipment A'],
     ['id' => 2, 'title' => 'Shipment B'],
-]
+];
 
 // identifier_types
-[
+$identifierTypes = [
     ['id' => 1, 'title' => 'Container'],
     ['id' => 2, 'title' => 'Tracking'],
     ['id' => 3, 'title' => 'Reference'],
-]
+];
 
 // identifiers
-[
+$identifiers = [
     ['work_item_id' => 1, 'identifier_type_id' => 1, 'value' => 'CNT12345'],
     ['work_item_id' => 1, 'identifier_type_id' => 2, 'value' => 'TRK98765'],
     ['work_item_id' => 1, 'identifier_type_id' => 3, 'value' => 'REF-001'],
     ['work_item_id' => 2, 'identifier_type_id' => 1, 'value' => 'CNT67890'],
     ['work_item_id' => 2, 'identifier_type_id' => 2, 'value' => 'TRK11111'],
     // Shipment B has no Reference identifier
-]
+];
 ```
 
 ## Setup

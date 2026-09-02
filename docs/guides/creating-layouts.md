@@ -83,30 +83,30 @@ The `value_path` property uses dot notation to access data.
 
 ```php
 // Model attribute
-'value_path' => 'email'
+'value_path' => 'email',
 
 // Another attribute
-'value_path' => 'name'
+'value_path' => 'name',
 ```
 
 ### Related Model Attributes
 
 ```php
 // BelongsTo relationship
-'value_path' => 'profile.bio'
+'value_path' => 'profile.bio',
 
 // Nested relationship
-'value_path' => 'company.address.city'
+'value_path' => 'company.address.city',
 ```
 
 ### Collection Attributes
 
 ```php
 // HasMany relationship
-'value_path' => 'posts'              // Returns collection
+'value_path' => 'posts',             // Returns collection
 
 // Specific attribute from collection
-'value_path' => 'posts.title'        // Needs aggregator
+'value_path' => 'posts.title',       // Needs aggregator
 ```
 
 ## Linking to Relations
@@ -345,13 +345,13 @@ Columns appear in order by `position`:
 
 ```php
 // First column
-ExportColumn::create([..., 'position' => 1]);
+ExportColumn::create([/* ... */ 'position' => 1]);
 
 // Second column
-ExportColumn::create([..., 'position' => 2]);
+ExportColumn::create([/* ... */ 'position' => 2]);
 
 // Third column
-ExportColumn::create([..., 'position' => 3]);
+ExportColumn::create([/* ... */ 'position' => 3]);
 ```
 
 ### Reordering Columns
