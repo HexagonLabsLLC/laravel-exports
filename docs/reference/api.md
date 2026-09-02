@@ -438,6 +438,8 @@ A layout row can carry its own columns in the `column_definitions` JSON field, s
 
 Because these columns have no database ids, request `defaults`/`overrides` (which are keyed by column UUID) cannot target them; use the definition's own `default` instead.
 
+Eloquent writes normalize the string-keyed shorthand into an ordered list before storage. When inserting `column_definitions` through raw SQL on MySQL, use the list form (`[{"title": "...", "value_path": "..."}]`) or explicit `position` keys - MySQL's JSON type does not preserve object key order.
+
 **Pivot config (`is_pivot` + `pivot_config`):**
 
 A pivot layout aggregates rows into a crosstab instead of exporting columns; see the [Pivot Reports guide](../guides/pivot-reports.md) for worked examples including grouped output. `group_by` and `sub_group_by` entries are either a path string or an array with a per-entry date bucket:

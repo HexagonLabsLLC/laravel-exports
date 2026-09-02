@@ -162,7 +162,8 @@ it('throws for sunday week starts off mysql', function () {
     ]);
 
     $this->service->executeExport($layout->id);
-})->throws(RuntimeException::class, 'Sunday-start weeks are only supported on mysql');
+})->throws(RuntimeException::class, 'Sunday-start weeks are only supported on mysql')
+    ->skip(fn () => getenv('DB_DRIVER') === 'mysql', 'sunday weeks are supported on mysql');
 
 it('throws for unknown buckets and entries without a path', function () {
     $layout = makeBucketLayout([
