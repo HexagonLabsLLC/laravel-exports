@@ -112,11 +112,11 @@ class SchemaSync
     {
         $validation = $this->inspector->validateNestedPath($exportModel->model, $path);
 
-        if (!($validation['valid'] ?? false)) {
+        if (!$validation['valid']) {
             return null;
         }
 
-        $segments = $validation['segments'] ?? [];
+        $segments = $validation['segments'];
         $last = $segments ? end($segments) : null;
 
         $related = null;
@@ -150,7 +150,7 @@ class SchemaSync
 
         $validation = $this->inspector->validateNestedPath($exportModel->model, $prefix);
 
-        if (!($validation['valid'] ?? false) || empty($validation['final_model'])) {
+        if (!$validation['valid'] || empty($validation['final_model'])) {
             return null;
         }
 
