@@ -10,13 +10,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property string $id
- * @property string $export_model_id
+ * @property string|null $export_model_id
+ * @property string|null $model
  * @property string $name
  * @property string|null $title
  * @property string|null $description
  * @property bool $is_pivot
  * @property array|null $pivot_config
  * @property array|null $column_definitions
+ * @property array|null $filter_definitions
+ * @property array|null $sort_definitions
  * @property-read ExportModel|null $exportModel
  * @property-read Collection<int, ExportFilter> $filters
  * @property-read Collection<int, ExportColumn> $columns
@@ -44,12 +47,15 @@ class ExportLayout extends Model
 
     protected $fillable = [
         'export_model_id',
+        'model',
         'name',
         'title',
         'description',
         'is_pivot',
         'pivot_config',
         'column_definitions',
+        'filter_definitions',
+        'sort_definitions',
     ];
 
     /**
@@ -63,6 +69,8 @@ class ExportLayout extends Model
             'is_pivot' => 'boolean',
             'pivot_config' => 'array',
             'column_definitions' => 'array',
+            'filter_definitions' => 'array',
+            'sort_definitions' => 'array',
         ];
     }
 

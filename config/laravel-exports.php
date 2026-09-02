@@ -79,4 +79,19 @@ return [
     // Fallback attributes to check when extracting values from related objects
     // without a specific value_path
     'fallback_attributes' => ['name', 'title', 'value', 'label'],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Schema Sync
+    |--------------------------------------------------------------------------
+    |
+    | How the export catalog stays in sync with your Eloquent models when a
+    | model is referenced at runtime:
+    |   lazy   - sync a model's catalog rows on first reference (default)
+    |   verify - also re-sync when the model's reflected schema has drifted
+    |   manual - never sync at runtime; run export:import-models yourself
+    |
+    */
+
+    'schema_sync' => env('EXPORT_SCHEMA_SYNC', 'lazy'),
 ];

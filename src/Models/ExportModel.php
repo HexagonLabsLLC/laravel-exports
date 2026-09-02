@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $id
  * @property string $title
  * @property string $model
+ * @property string|null $schema_hash
  * @property-read Model $instance
  * @property-read Collection<int, ExportModelRelation> $relations
  * @property-read Collection<int, ExportLayout> $layouts
@@ -38,6 +39,7 @@ class ExportModel extends Model
     protected $fillable = [
         'title',
         'model',
+        'schema_hash',
     ];
 
     protected $appends = [
