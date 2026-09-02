@@ -31,6 +31,11 @@ or broken public surface.
 
 ## Features
 
+- **`ExportLayout::addColumns()`** bulk-creates columns from one array:
+  `'Title' => 'value.path'` shorthand, `'Title' => [attributes]`, or list-style
+  attribute arrays. Positions auto-increment past the current max, and a
+  `relation` key resolves to `export_model_relation_id` against the layout's
+  export model (throwing for unregistered relations).
 - **XLSX export format** via a new `XlsxExportHandler`. The
   `phpoffice/phpspreadsheet` dependency is optional (composer `suggest`, not
   `require`); the handler throws with install instructions when the package is

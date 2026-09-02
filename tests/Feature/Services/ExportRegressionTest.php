@@ -372,6 +372,43 @@ it('exports xlsx with formula-safe string cells', function () {
         ->and($sheet->getCell('A5')->getDataType())->toBe(DataType::TYPE_STRING);
 });
 
+it('bulk creates columns from an array definition', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->userExportModel->id,
+        'name' => 'Bulk Columns',
+    ]);
+
+    $layout->addColumns([
+        'Name' => ['value_path' => 'name', 'relation' => 'name'],
+        'Email' => 'email',
+        ['title' => 'Signup Year', 'value_path' => 'created_at', 'default' => 'unknown'],
+    ]);
+
+    $columns = $layout->columns()->get();
+
+    expect($columns)->toHaveCount(3)
+        ->and($columns->pluck('title')->all())->toBe(['Name', 'Email', 'Signup Year'])
+        ->and($columns->pluck('position')->all())->toBe([1, 2, 3])
+        ->and($columns->first()->export_model_relation_id)->toBe($this->nameRelation->id);
+
+    $result = $this->service->executeExport($layout->id)->toArray();
+
+    expect($result[0])->toHaveKeys(['Name', 'Email', 'Signup Year'])
+        ->and($result[0]['Name'])->toBe('John Doe')
+        ->and($result[0]['Email'])->toBe('john@example.com');
+});
+
+it('rejects bulk columns referencing unregistered relations', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->userExportModel->id,
+        'name' => 'Bad Bulk Columns',
+    ]);
+
+    $layout->addColumns([
+        'Broken' => ['value_path' => 'x', 'relation' => 'not_a_relation'],
+    ]);
+})->throws(InvalidArgumentException::class, "Relation 'not_a_relation' is not registered");
+
 it('splits xlsx exports into sheets by column value', function () {
     $layout = ExportLayout::create([
         'export_model_id' => $this->postExportModel->id,

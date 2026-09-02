@@ -371,6 +371,19 @@ Defines an export configuration.
 - `filters()` - HasMany ExportFilter
 - `sorts()` - HasMany ExportSort
 
+**Methods:**
+
+`addColumns(array $columns): static` - bulk-create columns from one array. Entries may be `'Title' => 'value.path'` shorthand, `'Title' => [attributes]`, or list-style attribute arrays. Positions auto-increment past the current max when omitted, and a `relation` key is resolved to `export_model_relation_id` against the layout's export model (throws `InvalidArgumentException` for unregistered relations).
+
+```php
+$layout->addColumns([
+    'ID' => 'id',
+    'Name' => ['value_path' => 'name', 'relation' => 'name'],
+    'Email' => ['value_path' => 'email', 'default' => 'N/A'],
+    'Post Count' => ['value_path' => 'posts', 'relation' => 'posts', 'aggregator' => 'count'],
+]);
+```
+
 ### ExportColumn
 
 Defines a column in the export.

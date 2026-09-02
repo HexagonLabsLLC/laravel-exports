@@ -109,6 +109,47 @@ class ExportLayout extends Model
             ->orderBy('position');
     }
 
+    /**
+     * Bulk-create columns from an array. Entries may be:
+     * - 'Title' => 'value.path' (string shorthand)
+     * - 'Title' => [attributes] (title taken from the key unless set)
+     * - [attributes] (list style)
+     * A 'relation' key is resolved to export_model_relation_id against this
+     * layout's export model; positions auto-increment past the current max.
+     */
+    public function addColumns(array $columns): static
+    {
+        $position = (int)$this->columns()->max('position');
+
+        foreach ($columns as $title => $definition) {
+            $attributes = is_string($definition) ? ['value_path' => $definition] : $definition;
+
+            if (is_string($title) && !isset($attributes['title'])) {
+                $attributes['title'] = $title;
+            }
+
+            if ($relation = $attributes['relation'] ?? null) {
+                unset($attributes['relation']);
+                $attributes['export_model_relation_id'] ??= ExportModelRelation::where('export_model_id', $this->export_model_id)
+                    ->where('relation', $relation)
+                    ->value('id')
+                    ?? throw new \InvalidArgumentException(
+                        "Relation '{$relation}' is not registered for this layout's export model. Run export:import-models or create the ExportModelRelation first."
+                    );
+            }
+
+            if (isset($attributes['position'])) {
+                $position = max($position, (int)$attributes['position']);
+            } else {
+                $attributes['position'] = ++$position;
+            }
+
+            $this->columns()->create($attributes);
+        }
+
+        return $this;
+    }
+
     public function sorts(): HasMany
     {
         return $this->hasMany(ExportSort::class, 'export_layout_id')
