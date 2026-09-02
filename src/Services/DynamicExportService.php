@@ -81,7 +81,69 @@ class DynamicExportService
         $query = $this->applySorts($query);
         $results = $query->get();
 
+        $this->expandColumns($results);
+
         return $this->processResults($results);
+    }
+
+    /**
+     * Whether any loaded column expands into generated columns.
+     */
+    protected function hasExpandedColumns(): bool
+    {
+        return $this->columns->contains(fn ($column) => $column->is_expanded && $column->modelRelation);
+    }
+
+    /**
+     * Expand is_expanded collection columns into one generated column per
+     * distinct related value across the result set. Generated columns reuse
+     * the relation-operator filter extraction path, so each cell is the
+     * column's value_path aggregated over the row's matching related items.
+     */
+    protected function expandColumns(Collection $results): void
+    {
+        if (!$this->hasExpandedColumns()) {
+            return;
+        }
+
+        $this->columns = $this->columns->flatMap(function ($column) use ($results) {
+            if (!$column->is_expanded || !$column->modelRelation) {
+                return [$column];
+            }
+
+            $relationPath = $column->modelRelation->relation;
+            $headerPath = $column->expansion_data['header_path'] ?? 'name';
+
+            if (Str::contains($headerPath, '.')) {
+                $results->loadMissing($relationPath.'.'.Str::beforeLast($headerPath, '.'));
+            }
+
+            $headers = $results
+                ->flatMap(fn ($model) => collect(data_get($model, $relationPath) ?? [])
+                    ->map(fn ($item) => data_get($item, $headerPath)))
+                ->filter()
+                ->unique()
+                ->sort()
+                ->values();
+
+            return $headers->map(function ($header) use ($column, $relationPath, $headerPath) {
+                $generated = $column->replicate();
+                $generated->title = $column->format !== null
+                    ? str_replace('{value}', (string)$header, $column->format)
+                    : (string)$header;
+                $generated->format = null;
+                $generated->is_expanded = false;
+                $generated->setRelation('modelRelation', $column->modelRelation);
+                $generated->setRelation('exportFunction', $column->exportFunction);
+                $generated->setRelation('filter', new ExportFilter([
+                    'operator' => 'relation',
+                    'value' => [$relationPath, $headerPath, '=', $header],
+                    'value_type' => 'array',
+                ]));
+
+                return $generated;
+            });
+        })->values();
     }
 
     /**
@@ -934,6 +996,11 @@ class DynamicExportService
                     $value = $this->getColumnDefault($column);
                 }
 
+                // Wrap non-empty values in the column's format template
+                if ($column->format !== null && $value !== '' && is_scalar($value)) {
+                    $value = str_replace('{value}', (string)$value, $column->format);
+                }
+
                 // Apply override if present (takes precedence over everything)
                 $override = $this->getColumnOverride($column);
                 if ($override !== null) {
@@ -958,7 +1025,8 @@ class DynamicExportService
         }
 
         // Check if this column has a filter that constrained the relation
-        if ($column->export_filter_id && $column->filter && $column->filter->operator === 'relation') {
+        // (persisted via export_filter_id, or synthesized by expandColumns)
+        if ($column->filter && $column->filter->operator === 'relation') {
             return $this->extractCollectionValue($model, $column);
         }
 
@@ -1114,7 +1182,7 @@ class DynamicExportService
      */
     protected function extractCollectionValue(Model $model, ExportColumn $column)
     {
-        if (!$column->export_filter_id || !$column->filter) {
+        if (!$column->filter) {
             return $this->getColumnDefault($column);
         }
 
@@ -1337,6 +1405,12 @@ class DynamicExportService
             return;
         }
 
+        // Expanded columns derive their column set from the full dataset,
+        // which the first chunk cannot know
+        if ($this->hasExpandedColumns()) {
+            throw new \RuntimeException('Expanded columns require a full-dataset export; chunked and queued exports are not supported yet');
+        }
+
         // Standard chunked export flow
         $query = $this->buildQuery();
         $query = $this->applyFilters($query);
@@ -1377,6 +1451,10 @@ class DynamicExportService
     {
         $this->loadLayout($layout);
         $this->requestData = $requestData;
+
+        if ($this->hasExpandedColumns()) {
+            throw new \RuntimeException('Expanded columns require a full-dataset export; paginated exports are not supported yet');
+        }
 
         // Build the base query
         $query = $this->buildQuery();

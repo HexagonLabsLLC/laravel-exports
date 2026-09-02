@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $title
  * @property string|null $value_path
  * @property string|null $default
+ * @property string|null $format
  * @property int $position
  * @property bool $is_expanded
  * @property array|null $expansion_data
@@ -58,6 +59,7 @@ class ExportColumn extends Model
         'title',
         'value_path',
         'default',
+        'format',
         'position',
         'is_expanded',
         'expansion_data',

@@ -412,11 +412,35 @@ Defines a column in the export.
 - `title` (string, nullable)
 - `value_path` (string)
 - `default` (string, nullable)
+- `format` (string, nullable) - `{value}` output template; see below
 - `omit_on_empty` (boolean)
 - `aggregator` (enum, nullable) - sum, count, avg, min, max, first, last
 - `position` (integer)
 - `export_function_values` (json, nullable)
 - `export_filter_values` (json, nullable)
+- `is_expanded` (boolean) + `expansion_data` (json, nullable) - dynamic column expansion; see below
+
+**Format templates (`format`):**
+
+On a regular column, `format` wraps each cell's final value: `'value_path' => 'customer.name', 'format' => 'Site {value}'` renders `Site Customer Ltd.`. It applies after aggregation, transformation functions, and default resolution (so a default of `0` renders `0 Items` with `{value} Items`), is skipped when the value is empty (no ` Items` artifacts), and request overrides bypass it entirely.
+
+**Dynamic column expansion (`is_expanded`):**
+
+A column on a collection relation with `is_expanded => true` fans out at export time into one generated column per distinct related value across the filtered dataset (union, sorted alphabetically, so every row stays rectangular):
+
+```php
+[
+    'relation' => 'laborEntries',
+    'is_expanded' => true,
+    'format' => 'Site {value}',                      // templates the generated column TITLES
+    'expansion_data' => ['header_path' => 'site.name'], // names each column (default 'name')
+    'value_path' => 'hours',                         // cell extraction per matching item
+    'aggregator' => 'sum',                           // collapses a row's matches into the cell
+    'default' => '0',
+]
+```
+
+Each cell aggregates the row's related items whose `header_path` value matches that column. Without `format`, the raw header value is the title. Works identically inside a layout's `column_definitions` JSON. Limitation: expanded columns need the full dataset to determine the column set, so chunked, streamed, queued, and paginated exports throw a RuntimeException for now.
 
 **Relationships:**
 - `layout()` - BelongsTo ExportLayout

@@ -452,6 +452,80 @@ it('merges column_definitions with persisted columns by position', function () {
         ->and($result[0]['Name'])->toBe('John Doe');
 });
 
+it('formats column values with the {value} template', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->postExportModel->id,
+        'name' => 'Formatted Export',
+    ]);
+
+    $layout->addColumns([
+        'Author' => ['value_path' => 'user.name', 'format' => 'Site {value}'],
+        'Tag Sum' => ['value_path' => 'tags.value', 'relation' => 'tags', 'aggregator' => 'sum', 'format' => '{value} Items'],
+        'Missing' => ['value_path' => 'nickname', 'format' => '{value} X'],
+        'Fallback' => ['value_path' => 'nickname', 'default' => '0', 'format' => '{value} Items'],
+    ]);
+
+    $result = $this->service->executeExport($layout->id)->toArray();
+
+    expect($result[0]['Author'])->toBe('Site John Doe')
+        ->and($result[0]['Tag Sum'])->toBe('170 Items')
+        ->and($result[0]['Missing'])->toBe('')
+        ->and($result[0]['Fallback'])->toBe('0 Items');
+});
+
+it('expands a collection column into per-value columns', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->postExportModel->id,
+        'name' => 'Expanded Export',
+        'column_definitions' => [
+            'Title' => 'title',
+            'Categories' => [
+                'relation' => 'tags',
+                'is_expanded' => true,
+                'format' => '{value} Total',
+                'expansion_data' => ['header_path' => 'category.name'],
+                'value_path' => 'value',
+                'aggregator' => 'sum',
+                'default' => '0',
+            ],
+        ],
+    ]);
+
+    $result = $this->service->executeExport($layout->id)->toArray();
+
+    expect($result)->toHaveCount(3);
+
+    foreach ($result as $row) {
+        expect(array_keys($row))->toBe(['Title', 'Business Total', 'Lifestyle Total', 'Technology Total']);
+    }
+
+    expect($result[0]['Technology Total'])->toBe(120)
+        ->and($result[0]['Lifestyle Total'])->toBe(50)
+        ->and($result[0]['Business Total'])->toBe(0)
+        ->and($result[1]['Technology Total'])->toBe(75)
+        ->and($result[1]['Business Total'])->toBe(200)
+        ->and($result[2]['Lifestyle Total'])->toBe(30)
+        ->and($result[2]['Technology Total'])->toBe(0);
+});
+
+it('rejects expanded columns in chunked exports', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->postExportModel->id,
+        'name' => 'Expanded Chunked Export',
+        'column_definitions' => [
+            'Categories' => [
+                'relation' => 'tags',
+                'is_expanded' => true,
+                'expansion_data' => ['header_path' => 'category.name'],
+                'value_path' => 'value',
+                'aggregator' => 'sum',
+            ],
+        ],
+    ]);
+
+    $this->service->executeExportChunked($layout->id);
+})->throws(RuntimeException::class, 'Expanded columns require a full-dataset export');
+
 it('splits xlsx exports into sheets by column value', function () {
     $layout = ExportLayout::create([
         'export_model_id' => $this->postExportModel->id,

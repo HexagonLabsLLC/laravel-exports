@@ -31,6 +31,16 @@ or broken public surface.
 
 ## Features
 
+- **Column `format` templates**: a nullable `format` field on export_columns
+  wraps each cell's final value with a `{value}` template (`Site {value}` ->
+  `Site Customer Ltd.`). Applied after aggregation, functions, and defaults;
+  skipped for empty values; bypassed by request overrides.
+- **Dynamic column expansion**: `is_expanded` + `expansion_data.header_path`
+  on a collection-relation column now generate one column per distinct related
+  value across the dataset (alphabetical, rectangular rows), with `format`
+  templating the generated titles and the column's own value_path/aggregator/
+  default driving each cell. Chunked, streamed, queued, and paginated exports
+  throw for expanded columns (full dataset required).
 - **Database-driven columns via `export_layouts.column_definitions`** (json,
   nullable): a layout row can carry its own column definitions, so layouts
   inserted purely through the database need no `export_columns` rows and no

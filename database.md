@@ -83,11 +83,14 @@
 - `value_path` (`varchar`)
 	- Dot notation of the relation
 - `default` (`nullable`|`varchar`)
-	- If the result is empty or null, this will be used in it's place
+	- If the result is empty or null, this will be used in its place
+- `format` (`nullable`|`varchar`)
+	- `{value}` output template. Regular column: wraps each cell (`Site {value}`). Expanded column: templates the generated column titles.
 - `position` (`integer`)
 - `is_expanded` (`boolean`)
-	- If a collection is selected, this will determine if they are their own columns or input as a specific value. E.g. JSON or delimited array.
+	- Expands a collection-relation column into one generated column per distinct related value across the dataset
 - `expansion_data` (`nullable`|`JSON`)
+	- Expansion config: `header_path` (data_get path naming each generated column, default `name`). Pivot layouts use `format_function` here instead.
 - `omit_on_empty` (`boolean`)
 	- If the column is empty, output an empty string (keeps CSV columns aligned)
 - INDEX(`export_layout_id`, `export_function_id`, `export_model_relation_id`)

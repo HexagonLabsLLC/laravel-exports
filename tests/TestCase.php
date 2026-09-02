@@ -131,6 +131,7 @@ class TestCase extends Orchestra
             $table->string('title')->nullable();
             $table->string('value_path');
             $table->string('default')->nullable()->default(null);
+            $table->string('format')->nullable();
             $table->integer('position');
             $table->boolean('is_expanded')->default(false);
             $table->json('expansion_data')->nullable()->default(null);
