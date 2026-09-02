@@ -118,42 +118,47 @@ Jane,"$5,678.90",No,"February 20, 2024"
 
 ```php
 // ISO format
-'export_function_values' => [null, 'Y-m-d']
+'export_function_values' => [null, 'Y-m-d'],
 // Output: "2024-01-15"
 
 // US format
-'export_function_values' => [null, 'm/d/Y']
+'export_function_values' => [null, 'm/d/Y'],
 // Output: "01/15/2024"
 
 // European format
-'export_function_values' => [null, 'd/m/Y']
+'export_function_values' => [null, 'd/m/Y'],
 // Output: "15/01/2024"
 
 // Full date
-'export_function_values' => [null, 'l, F j, Y']
+'export_function_values' => [null, 'l, F j, Y'],
 // Output: "Monday, January 15, 2024"
 
 // With time
-'export_function_values' => [null, 'M j, Y g:i A']
+'export_function_values' => [null, 'M j, Y g:i A'],
 // Output: "Jan 15, 2024 2:30 PM"
 ```
 
 ### Number Formats
 
 ```php
-// Format Number: decimals, thousands separator
 $formatNumber = ExportFunction::where('name', 'Format Number')->first();
-'export_function_values' => [null, 2, ',']
+$round = ExportFunction::where('name', 'Round')->first();
+$percentage = ExportFunction::where('name', 'Percentage')->first();
+```
+
+Set the matching column values:
+
+```php
+// Format Number: decimals, thousands separator
+'export_function_values' => [null, 2, ','],
 // Output: 1234567 -> "1,234,567.00"
 
 // Round
-$round = ExportFunction::where('name', 'Round')->first();
-'export_function_values' => [null, 2]
+'export_function_values' => [null, 2],
 // Output: 3.14159 -> 3.14
 
 // Percentage
-$percentage = ExportFunction::where('name', 'Percentage')->first();
-'export_function_values' => [null, 1]
+'export_function_values' => [null, 1],
 // Output: 0.756 -> "75.6%"
 ```
 
@@ -161,15 +166,15 @@ $percentage = ExportFunction::where('name', 'Percentage')->first();
 
 ```php
 // USD
-'export_function_values' => [null, 'USD', 'en_US']
+'export_function_values' => [null, 'USD', 'en_US'],
 // Output: "$1,234.56"
 
 // EUR
-'export_function_values' => [null, 'EUR', 'de_DE']
+'export_function_values' => [null, 'EUR', 'de_DE'],
 // Output: "1.234,56" followed by the euro sign
 
 // GBP
-'export_function_values' => [null, 'GBP', 'en_GB']
+'export_function_values' => [null, 'GBP', 'en_GB'],
 // Output: "1,234.56" prefixed with the pound sign
 ```
 
@@ -177,29 +182,34 @@ $percentage = ExportFunction::where('name', 'Percentage')->first();
 
 ```php
 // Yes/No (default)
-'export_function_values' => [null, 'Yes', 'No']
+'export_function_values' => [null, 'Yes', 'No'],
 
 // Active/Inactive
-'export_function_values' => [null, 'Active', 'Inactive']
+'export_function_values' => [null, 'Active', 'Inactive'],
 
 // Enabled/Disabled
-'export_function_values' => [null, 'Enabled', 'Disabled']
+'export_function_values' => [null, 'Enabled', 'Disabled'],
 
 // Custom symbols
-'export_function_values' => [null, 'V', 'X']
+'export_function_values' => [null, 'V', 'X'],
 ```
 
 ### String Manipulation
 
 ```php
-// Truncate long text
 $truncate = ExportFunction::where('name', 'Truncate')->first();
-'export_function_values' => [null, 50, '...']
+$mask = ExportFunction::where('name', 'Mask')->first();
+```
+
+Set the matching column values:
+
+```php
+// Truncate long text
+'export_function_values' => [null, 50, '...'],
 // Output: the first 50 characters followed by "..."
 
 // Mask sensitive data
-$mask = ExportFunction::where('name', 'Mask')->first();
-'export_function_values' => [null, 4, '*']
+'export_function_values' => [null, 4, '*'],
 // Output: "1234567890" -> "1234******"
 ```
 

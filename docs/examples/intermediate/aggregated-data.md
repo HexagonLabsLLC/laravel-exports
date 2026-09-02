@@ -10,21 +10,21 @@ Export a customer summary with order statistics.
 
 ```php
 // customers table
-[
+$customers = [
     ['id' => 1, 'name' => 'John Doe'],
     ['id' => 2, 'name' => 'Jane Smith'],
     ['id' => 3, 'name' => 'Bob Wilson'],
-]
+];
 
 // orders table
-[
+$orders = [
     ['customer_id' => 1, 'total' => 100.00, 'created_at' => '2024-01-15'],
     ['customer_id' => 1, 'total' => 200.00, 'created_at' => '2024-02-20'],
     ['customer_id' => 1, 'total' => 150.00, 'created_at' => '2024-03-10'],
     ['customer_id' => 2, 'total' => 500.00, 'created_at' => '2024-02-01'],
     ['customer_id' => 2, 'total' => 75.00, 'created_at' => '2024-03-15'],
     // Bob has no orders
-]
+];
 ```
 
 ## Setup

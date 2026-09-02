@@ -8,16 +8,16 @@ Laravel Exports supports traversing multiple relationship levels:
 
 ```php
 // Single level
-'value_path' => 'profile.bio'
+'value_path' => 'profile.bio',
 
 // Two levels
-'value_path' => 'company.address.city'
+'value_path' => 'company.address.city',
 
 // Three levels
-'value_path' => 'workItem.workOrder.customer.name'
+'value_path' => 'workItem.workOrder.customer.name',
 
 // Four levels
-'value_path' => 'order.customer.profile.company.name'
+'value_path' => 'order.customer.profile.company.name',
 ```
 
 ## Setup

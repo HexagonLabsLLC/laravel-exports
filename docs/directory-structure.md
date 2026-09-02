@@ -167,7 +167,7 @@ Artisan commands for managing the export system:
 - Validate layout configurations (`export:validate`)
 
 ### Jobs (`src/Jobs/`)
-`ProcessExportJob` runs queued exports in the background with cache-based status tracking. Only the `csv` and `json` formats are supported for queued exports.
+`ProcessExportJob` runs queued exports in the background with cache-based status tracking. Any format registered with `ExportFactory` can be queued: `csv` and `json` are written chunk by chunk to a temp file, every other format (xlsx, custom handlers) buffers the result set in memory and calls the handler's `export()`.
 
 ### Helpers (`src/Helpers/`)
 Utility classes for model introspection and relationship discovery.

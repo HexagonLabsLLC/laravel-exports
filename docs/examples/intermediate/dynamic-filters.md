@@ -194,14 +194,14 @@ The system matches parameter names against these variants (matching is case-sens
 
 ```php
 // Filter for 'customer.name' matches any of:
-'customer.name'   // Exact match
-'customer_name'   // Dots replaced by underscores
-$filter->id       // Filter UUID
+'customer.name',   // Exact match
+'customer_name',   // Dots replaced by underscores
+$filter->id,       // Filter UUID
 
 // For camelCase paths like 'workOrder.invoice.custom_id':
-'workorder.invoice.custom_id'   // Lowercase
-'work_order.invoice.custom_id'  // Snake case
-'workOrder_invoice_custom_id'   // Underscores
+'workorder.invoice.custom_id',   // Lowercase
+'work_order.invoice.custom_id',  // Snake case
+'workOrder_invoice_custom_id',   // Underscores
 ```
 
 ## Combining Static and Dynamic Filters
