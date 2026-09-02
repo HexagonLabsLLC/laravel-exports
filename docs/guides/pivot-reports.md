@@ -204,7 +204,9 @@ columns are excluded from the row totals:
     // ...
     'pivot_filter_param' => 'category_ids',
 ],
+```
 
+```php
 $service->executeExport($layout, ['category_ids' => '1,3']);
 ```
 
