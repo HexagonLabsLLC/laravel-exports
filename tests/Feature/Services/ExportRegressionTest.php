@@ -634,6 +634,388 @@ it('applies sort definitions from the layout row', function () {
         ->toBe(['Third Post', 'Second Post', 'First Post']);
 });
 
+it('lets an active request filter suppress a static filter on the same column', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->userExportModel->id,
+        'name' => 'Conflict Filters',
+    ]);
+
+    ExportColumn::create([
+        'export_layout_id' => $layout->id,
+        'export_model_relation_id' => $this->nameRelation->id,
+        'title' => 'Name',
+        'value_path' => 'name',
+        'position' => 1,
+    ]);
+
+    ExportFilter::create([
+        'export_layout_id' => $layout->id,
+        'export_model_relation_id' => $this->nameRelation->id,
+        'operator' => '=',
+        'value' => 'John Doe',
+    ]);
+
+    ExportFilter::create([
+        'export_layout_id' => $layout->id,
+        'export_model_relation_id' => $this->nameRelation->id,
+        'operator' => '=',
+        'is_request' => true,
+    ]);
+
+    $withRequest = $this->service->executeExport($layout->id, ['name' => 'Jane Smith'])->toArray();
+    $withoutRequest = $this->service->executeExport($layout->id)->toArray();
+
+    expect($withRequest)->toHaveCount(1)
+        ->and($withRequest[0]['Name'])->toBe('Jane Smith')
+        ->and($withoutRequest)->toHaveCount(1)
+        ->and($withoutRequest[0]['Name'])->toBe('John Doe');
+});
+
+it('groups or filters with the preceding filter instead of escaping the scope', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->postExportModel->id,
+        'name' => 'Or Grouping',
+        'column_definitions' => ['Title' => 'title'],
+        'filter_definitions' => [
+            ['path' => 'title', 'operator' => '=', 'value' => 'Second Post'],
+            ['path' => 'title', 'operator' => '=', 'value' => 'Third Post', 'logical_operator' => 'or'],
+            ['path' => 'published', 'operator' => '=', 'value' => true],
+        ],
+    ]);
+
+    $result = $this->service->executeExport($layout->id)->toArray();
+
+    expect(collect($result)->pluck('Title')->all())->toBe(['Third Post']);
+});
+
+it('limits pivot columns to the request param and excludes hidden columns from totals', function () {
+    $ids = Category::pluck('id', 'name');
+
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->postExportModel->id,
+        'name' => 'Filtered Pivot',
+        'is_pivot' => true,
+        'pivot_config' => [
+            'group_by' => ['user.name'],
+            'pivot_relation' => 'tags.category.name',
+            'pivot_column' => 'name',
+            'pivot_filter_param' => 'category_ids',
+            'value_relation' => 'tags',
+            'value_column' => 'value',
+            'aggregation' => 'sum',
+            'output_format' => 'flat',
+        ],
+    ]);
+
+    $result = $this->service->executeExport($layout->id, [
+        'category_ids' => $ids['Technology'].','.$ids['Lifestyle'],
+    ])->toArray();
+
+    foreach ($result as $row) {
+        expect(array_keys($row))->toBe(['User name', 'Lifestyle', 'Technology', 'Total']);
+    }
+
+    $rows = collect($result)->keyBy('User name');
+
+    expect($rows['Jane Smith']['Lifestyle'])->toBe('30.00')
+        ->and($rows['Jane Smith']['Total'])->toBe('30.00')
+        ->and($rows['John Doe']['Lifestyle'])->toBe('50.00')
+        ->and($rows['John Doe']['Technology'])->toBe('195.00')
+        ->and($rows['John Doe']['Total'])->toBe('245.00');
+
+    $lifestyleOnly = collect($this->service->executeExport($layout->id, [
+        'category_ids' => [$ids['Lifestyle']],
+    ])->toArray())->keyBy('User name');
+
+    expect(array_keys($lifestyleOnly['John Doe']))->toBe(['User name', 'Lifestyle', 'Total'])
+        ->and($lifestyleOnly['John Doe']['Total'])->toBe('50.00');
+});
+
+it('requires request-backed column filters', function () {
+    $valueRelation = ExportModelRelation::create([
+        'export_model_id' => $this->postExportModel->id,
+        'title' => 'Tag Value',
+        'relation' => 'tags.value',
+        'is_column' => true,
+    ]);
+
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->postExportModel->id,
+        'name' => 'Required Column Filter',
+    ]);
+
+    $filter = ExportFilter::create([
+        'export_layout_id' => $layout->id,
+        'export_model_relation_id' => $valueRelation->id,
+        'operator' => 'in',
+        'is_request' => true,
+        'is_required' => true,
+    ]);
+
+    ExportColumn::create([
+        'export_layout_id' => $layout->id,
+        'export_filter_id' => $filter->id,
+        'title' => 'Title',
+        'value_path' => 'title',
+        'position' => 1,
+    ]);
+
+    $this->service->executeExport($layout->id);
+})->throws(Exception::class, "Required column filter 'tags.value' not provided");
+
+it('treats comma strings like arrays for column filters', function () {
+    $valueRelation = ExportModelRelation::create([
+        'export_model_id' => $this->postExportModel->id,
+        'title' => 'Tag Value',
+        'relation' => 'tags.value',
+        'is_column' => true,
+    ]);
+
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->postExportModel->id,
+        'name' => 'Comma Column Filter',
+    ]);
+
+    $filter = ExportFilter::create([
+        'export_layout_id' => $layout->id,
+        'export_model_relation_id' => $valueRelation->id,
+        'operator' => 'in',
+        'is_request' => true,
+    ]);
+
+    ExportColumn::create([
+        'export_layout_id' => $layout->id,
+        'export_filter_id' => $filter->id,
+        'title' => 'Title',
+        'value_path' => 'title',
+        'position' => 1,
+    ]);
+
+    $asArray = $this->service->executeExport($layout->id, ['tags.value' => ['120', '30']])->toArray();
+    $asString = $this->service->executeExport($layout->id, ['tags.value' => '120,30'])->toArray();
+
+    expect(collect($asArray)->pluck('Title')->all())->toBe(['First Post', 'Third Post'])
+        ->and(collect($asString)->pluck('Title')->all())->toBe(['First Post', 'Third Post']);
+});
+
+it('filters by relation existence without duplicating rows', function () {
+    Post::insert([
+        ['user_id' => User::where('name', 'John Doe')->first()->id, 'title' => 'Tagless Post', 'content' => 'C4', 'published' => true, 'created_at' => now(), 'updated_at' => now()],
+    ]);
+
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->postExportModel->id,
+        'name' => 'Has Tags',
+        'column_definitions' => ['Title' => 'title'],
+        'filter_definitions' => [
+            ['path' => 'tags', 'operator' => 'not_null', 'column' => 'value'],
+        ],
+    ]);
+
+    $result = $this->service->executeExport($layout->id)->toArray();
+
+    expect(collect($result)->pluck('Title')->all())->toBe(['First Post', 'Second Post', 'Third Post'])
+        ->and($this->service->getExportCount($layout->id))->toBe(3);
+});
+
+it('applies overrides after format templates and defaults before them', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->userExportModel->id,
+        'name' => 'Override Ordering',
+    ]);
+
+    $name = ExportColumn::create([
+        'export_layout_id' => $layout->id,
+        'export_model_relation_id' => $this->nameRelation->id,
+        'title' => 'Name',
+        'value_path' => 'name',
+        'format' => 'Site {value}',
+        'position' => 1,
+    ]);
+
+    $nickname = ExportColumn::create([
+        'export_layout_id' => $layout->id,
+        'title' => 'Nickname',
+        'value_path' => 'nickname',
+        'format' => '{value} X',
+        'position' => 2,
+    ]);
+
+    $result = $this->service->executeExport($layout->id, [
+        'overrides' => [$name->id => 'FORCED'],
+        'defaults' => [$nickname->id => 'N/A'],
+    ])->toArray();
+
+    expect($result[0])->toBe(['Name' => 'FORCED', 'Nickname' => 'N/A X']);
+});
+
+it('derives expanded column headers from the filtered result set', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->postExportModel->id,
+        'name' => 'Filtered Expansion',
+        'column_definitions' => [
+            'Title' => 'title',
+            'Categories' => [
+                'relation' => 'tags',
+                'is_expanded' => true,
+                'format' => '{value} Total',
+                'expansion_data' => ['header_path' => 'category.name'],
+                'value_path' => 'value',
+                'aggregator' => 'sum',
+                'default' => '0',
+            ],
+        ],
+        'filter_definitions' => [
+            ['path' => 'published', 'operator' => '=', 'value' => true],
+        ],
+    ]);
+
+    $result = $this->service->executeExport($layout->id)->toArray();
+
+    expect($result)->toHaveCount(2);
+
+    foreach ($result as $row) {
+        expect(array_keys($row))->toBe(['Title', 'Lifestyle Total', 'Technology Total']);
+    }
+
+    expect($result[0]['Lifestyle Total'])->toBe(50)
+        ->and($result[0]['Technology Total'])->toBe(120)
+        ->and($result[1]['Lifestyle Total'])->toBe(30)
+        ->and($result[1]['Technology Total'])->toBe(0);
+});
+
+it('interleaves defined and persisted sorts by priority', function () {
+    $titleRelation = ExportModelRelation::create([
+        'export_model_id' => $this->postExportModel->id,
+        'title' => 'Title',
+        'relation' => 'title',
+        'is_column' => true,
+    ]);
+
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->postExportModel->id,
+        'name' => 'Interleaved Sorts',
+        'column_definitions' => ['Title' => 'title'],
+        'sort_definitions' => [
+            ['path' => 'user', 'sort_column' => 'name', 'priority' => 1],
+        ],
+    ]);
+
+    ExportSort::create([
+        'export_layout_id' => $layout->id,
+        'export_model_relation_id' => $titleRelation->id,
+        'direction' => 'asc',
+        'priority' => 5,
+    ]);
+
+    $result = $this->service->executeExport($layout->id)->toArray();
+
+    expect(collect($result)->pluck('Title')->all())->toBe(['Third Post', 'First Post', 'Second Post']);
+});
+
+it('defaults defined sorts to slot after persisted sorts', function () {
+    $titleRelation = ExportModelRelation::create([
+        'export_model_id' => $this->postExportModel->id,
+        'title' => 'Title',
+        'relation' => 'title',
+        'is_column' => true,
+    ]);
+
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->postExportModel->id,
+        'name' => 'Default Priority Sorts',
+        'column_definitions' => ['Title' => 'title'],
+        'sort_definitions' => [
+            ['path' => 'user', 'sort_column' => 'name'],
+        ],
+    ]);
+
+    ExportSort::create([
+        'export_layout_id' => $layout->id,
+        'export_model_relation_id' => $titleRelation->id,
+        'direction' => 'asc',
+        'priority' => 5,
+    ]);
+
+    $result = $this->service->executeExport($layout->id)->toArray();
+
+    expect(collect($result)->pluck('Title')->all())->toBe(['First Post', 'Second Post', 'Third Post']);
+});
+
+it('paginates with correct meta and page slicing', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->userExportModel->id,
+        'name' => 'Paginated Export',
+        'column_definitions' => ['Name' => 'name'],
+        'sort_definitions' => [['path' => 'name']],
+    ]);
+
+    $page = $this->service->executeExportPaginated($layout->id, [], 2, 2);
+
+    expect($page['data']->toArray())->toBe([['Name' => 'John Doe']])
+        ->and($page['meta'])->toBe([
+            'current_page' => 2,
+            'last_page' => 2,
+            'per_page' => 2,
+            'total' => 3,
+            'from' => 3,
+            'to' => 3,
+        ]);
+});
+
+it('applies smart dotted request filters with not_in and comma strings', function () {
+    $authorRelation = ExportModelRelation::create([
+        'export_model_id' => $this->tagExportModel->id,
+        'title' => 'Author Name',
+        'relation' => 'post.user.name',
+        'is_column' => true,
+    ]);
+
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->tagExportModel->id,
+        'name' => 'Smart Not In',
+        'column_definitions' => ['Value' => 'value'],
+    ]);
+
+    ExportFilter::create([
+        'export_layout_id' => $layout->id,
+        'export_model_relation_id' => $authorRelation->id,
+        'operator' => 'not_in',
+        'is_request' => true,
+    ]);
+
+    $excludeJohn = $this->service->executeExport($layout->id, ['post.user.name' => 'John Doe'])->toArray();
+    $excludeBoth = $this->service->executeExport($layout->id, ['post.user.name' => 'John Doe,Jane Smith'])->toArray();
+    $snakeKey = $this->service->executeExport($layout->id, ['post_user_name' => 'John Doe'])->toArray();
+
+    expect(collect($excludeJohn)->pluck('Value')->all())->toBe(['30'])
+        ->and($excludeBoth)->toHaveCount(0)
+        ->and(collect($snakeKey)->pluck('Value')->all())->toBe(['30']);
+});
+
+it('advances auto positions past explicitly positioned definitions', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->userExportModel->id,
+        'name' => 'Position Clamp',
+        'column_definitions' => [
+            'Far' => ['value_path' => 'email', 'position' => 5],
+            'Next' => 'name',
+        ],
+    ]);
+
+    ExportColumn::create([
+        'export_layout_id' => $layout->id,
+        'export_model_relation_id' => $this->nameRelation->id,
+        'title' => 'Persisted',
+        'value_path' => 'name',
+        'position' => 2,
+    ]);
+
+    $result = $this->service->executeExport($layout->id)->toArray();
+
+    expect(array_keys($result[0]))->toBe(['Persisted', 'Far', 'Next']);
+});
+
 it('builds and saves catalog-backed layouts fluently', function () {
     ExportModelRelation::query()->delete();
     ExportModel::query()->delete();
