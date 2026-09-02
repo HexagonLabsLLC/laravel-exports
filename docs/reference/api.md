@@ -438,6 +438,28 @@ A layout row can carry its own columns in the `column_definitions` JSON field, s
 
 Because these columns have no database ids, request `defaults`/`overrides` (which are keyed by column UUID) cannot target them; use the definition's own `default` instead.
 
+**Pivot config (`is_pivot` + `pivot_config`):**
+
+A pivot layout aggregates rows into a crosstab instead of exporting columns; see the [Pivot Reports guide](../guides/pivot-reports.md) for worked examples including grouped output. `group_by` and `sub_group_by` entries are either a path string or an array with a per-entry date bucket:
+
+```json
+{
+  "group_by": [
+    "customer.name",
+    {"path": "created_at", "format": "month", "header": "Month"}
+  ],
+  "sub_group_by": ["product.name"],
+  "pivot_relation": "product.category.name",
+  "pivot_column": "name",
+  "value_relation": "order_items",
+  "value_column": "amount",
+  "aggregation": "sum",
+  "output_format": "flat"
+}
+```
+
+Buckets are `day` (2025-01-15), `week`/`week_year` (2025-W03, ISO), `month` (2025-01), `quarter` (2025-Q1), and `year` (2025), with driver-aware SQL for mysql, sqlite, and pgsql. The global `group_by_format` applies the bucket to string `group_by` entries only (never to `sub_group_by`); array entries always use their own `format`, `header` (which beats the indexed `group_by_headers` fallback), and `week_start`. `week_start` is `monday` (ISO, all drivers, default) or `sunday` (YEARWEEK mode 0, mysql only - other drivers throw). Unknown buckets, drivers, or entries without a `path` throw a `RuntimeException`, and `export:validate` reports them as `unknown_group_format`, `missing_group_path`, and `unknown_week_start`.
+
 **Methods:**
 
 `addColumns(array $columns): static` - bulk-create columns from one array. Entries may be `'Title' => 'value.path'` shorthand, `'Title' => [attributes]`, or list-style attribute arrays. Positions auto-increment past the current max when omitted, and a `relation` key is resolved to `export_model_relation_id` against the layout's export model (throws `InvalidArgumentException` for unregistered relations).

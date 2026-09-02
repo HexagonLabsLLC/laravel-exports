@@ -150,6 +150,7 @@ See the [full documentation](docs/index.md) for:
 
 - [Nested Relationships](docs/guides/nested-relationships.md) - Deep data traversal
 - [Pivot Tables](docs/guides/pivot-tables.md) - BelongsToMany pivot data
+- [Pivot Reports](docs/guides/pivot-reports.md) - Crosstab reports with grouping and date buckets
 - [Transformation Functions](docs/guides/transformation-functions.md) - All 23 functions
 - [Aggregations](docs/guides/aggregations.md) - Collection aggregation
 - [Large Datasets](docs/guides/large-datasets.md) - Performance optimization

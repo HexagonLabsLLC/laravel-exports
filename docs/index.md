@@ -15,6 +15,7 @@ Laravel Exports is a powerful, database-driven export system for Laravel applica
 - **Multiple Formats** - CSV and JSON built in, XLSX via the optional phpoffice/phpspreadsheet package
 - **Background Processing** - Queue large exports with status tracking
 - **Pivot Table Support** - Export BelongsToMany pivot attributes
+- **Pivot Reports** - Crosstab reports with grouping, date buckets, and dynamic columns
 
 ## Quick Navigation
 
@@ -36,6 +37,7 @@ Laravel Exports is a powerful, database-driven export system for Laravel applica
 - [Aggregations](guides/aggregations.md) - Collection aggregation options
 - [Nested Relationships](guides/nested-relationships.md) - Deep relationship traversal
 - [Pivot Tables](guides/pivot-tables.md) - BelongsToMany pivot data
+- [Pivot Reports](guides/pivot-reports.md) - Crosstab reports with grouping and date buckets
 - [Large Datasets](guides/large-datasets.md) - Chunking, streaming, and background jobs
 
 ### Examples
