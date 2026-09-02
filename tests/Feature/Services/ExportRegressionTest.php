@@ -452,6 +452,78 @@ it('merges column_definitions with persisted columns by position', function () {
         ->and($result[0]['Name'])->toBe('John Doe');
 });
 
+it('runs exports from a layout referencing a model class with an empty catalog', function () {
+    ExportModelRelation::query()->delete();
+    ExportModel::query()->delete();
+
+    $layout = ExportLayout::create([
+        'model' => Post::class,
+        'name' => 'lazy_layout',
+        'column_definitions' => [
+            'Title' => 'title',
+            'Tag Total' => ['relation' => 'tags', 'value_path' => 'tags.value', 'aggregator' => 'sum', 'default' => '0'],
+        ],
+    ]);
+
+    $result = $this->service->executeExport($layout->id)->toArray();
+
+    expect($result)->toHaveCount(3)
+        ->and($result[0]['Title'])->toBe('First Post')
+        ->and($result[0]['Tag Total'])->toBe(170)
+        ->and(ExportModel::where('model', Post::class)->exists())->toBeTrue()
+        ->and(ExportModelRelation::where('relation', 'tags')->where('is_column', false)->exists())->toBeTrue();
+});
+
+it('throws for model-class layouts in manual sync mode', function () {
+    config()->set('laravel-exports.schema_sync', 'manual');
+    ExportModelRelation::query()->delete();
+    ExportModel::query()->delete();
+
+    $layout = ExportLayout::create([
+        'model' => Post::class,
+        'name' => 'manual_layout',
+        'column_definitions' => ['Title' => 'title'],
+    ]);
+
+    (new DynamicExportService)->executeExport($layout->id);
+})->throws(RuntimeException::class, 'not registered in the export catalog');
+
+it('throws for layouts with neither a model class nor an export model', function () {
+    $layout = ExportLayout::create([
+        'name' => 'orphan_layout',
+        'column_definitions' => ['Title' => 'title'],
+    ]);
+
+    $this->service->executeExport($layout->id);
+})->throws(InvalidArgumentException::class, 'neither an export model nor a model class');
+
+it('lazily syncs referenced nested paths instead of ad hoc inserts', function () {
+    $layout = ExportLayout::create([
+        'export_model_id' => $this->postExportModel->id,
+        'name' => 'nested_path_layout',
+    ]);
+
+    ExportColumn::create([
+        'export_layout_id' => $layout->id,
+        'export_model_relation_id' => $this->tagsRelation->id,
+        'title' => 'Category',
+        'value_path' => 'tags.category.name',
+        'aggregator' => 'first',
+        'position' => 1,
+    ]);
+
+    config()->set('laravel-exports.schema_sync', 'manual');
+    $before = ExportModelRelation::count();
+    (new DynamicExportService)->executeExport($layout->id);
+
+    expect(ExportModelRelation::count())->toBe($before);
+
+    config()->set('laravel-exports.schema_sync', 'lazy');
+    (new DynamicExportService)->executeExport($layout->id);
+
+    expect(ExportModelRelation::where('relation', 'tags.category')->exists())->toBeTrue();
+});
+
 it('formats column values with the {value} template', function () {
     $layout = ExportLayout::create([
         'export_model_id' => $this->postExportModel->id,

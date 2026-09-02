@@ -13,6 +13,8 @@ class SchemaSync
 
     protected array $reflected = [];
 
+    protected array $syncedThisRequest = [];
+
     public function __construct(protected ModelRelationInspector $inspector) {}
 
     public function mode(): string
@@ -53,6 +55,15 @@ class SchemaSync
         }
 
         return $this->syncModel($modelClass);
+    }
+
+    /**
+     * Sync a model at most once per request; used by lookup-miss retry hooks
+     * so repeated misses do not re-sync per row.
+     */
+    public function syncOnce(string $modelClass): ExportModel
+    {
+        return $this->syncedThisRequest[$modelClass] ??= $this->syncModel($modelClass);
     }
 
     /**

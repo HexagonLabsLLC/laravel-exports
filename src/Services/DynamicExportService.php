@@ -175,8 +175,8 @@ class DynamicExportService
         }
 
         $this->layout = $layout;
-        // Load related data
-        $this->exportModel = $layout->exportModel;
+        // Load related data; a layout's model FQCN lazy-syncs the catalog
+        $this->exportModel = $layout->resolveExportModel();
         // Load columns with their relationships (including functions and filters)
         $this->columns = $layout->columns()
             ->with(['modelRelation', 'exportFunction', 'filter.modelRelation'])
@@ -692,10 +692,19 @@ class DynamicExportService
             }
 
             // Check if this part is a relation on the current model
-            $relation = $currentModel->relations()
+            $find = fn () => $currentModel->relations()
                 ->where('relation', $part)
                 ->where('is_column', false)
                 ->first();
+
+            $relation = $find();
+
+            // The sync-as-referenced cascade: a related model whose catalog is
+            // empty (e.g. a stub row) syncs on first traversal
+            if (!$relation && $this->schemaSync->canSync()) {
+                $this->schemaSync->syncOnce($currentModel->model);
+                $relation = $find();
+            }
 
             if ($relation) {
                 // It's a relation, add to path
@@ -718,11 +727,12 @@ class DynamicExportService
     }
 
     /**
-     * Validate a nested path and create missing relations on-the-fly
+     * Validate a referenced nested path and lazily sync it into the catalog
+     * per the schema_sync mode (manual mode never writes).
      */
     protected function validateAndCreateNestedPath(string $path): void
     {
-        if (!$this->exportModel || !$this->inspector) {
+        if (!$this->exportModel) {
             return;
         }
 
@@ -732,85 +742,25 @@ class DynamicExportService
         }
         $this->validatedPaths[$path] = true;
 
-        // Check if this nested path already exists in our records
         $exists = ExportModelRelation::where('export_model_id', $this->exportModel->id)
             ->where('relation', $path)
             ->exists();
 
-        if ($exists) {
-            return; // Path already exists
+        if ($exists || !$this->schemaSync->canSync()) {
+            return;
         }
 
-        // Validate the path using ModelRelationInspector
-        $validation = $this->inspector->validateNestedPath($this->exportModel->model, $path);
+        $row = $this->schemaSync->syncPath($this->exportModel, $path);
 
-        if (!$validation['valid']) {
+        if (!$row) {
             Log::warning("Invalid nested path detected: {$path}", [
-                'error' => $validation['error'],
                 'model' => $this->exportModel->model,
             ]);
 
             return;
         }
 
-        // Path is valid, create the missing relation record
-        $this->createNestedRelation($path, $validation);
-    }
-
-    /**
-     * Create a nested relation record from validation results
-     */
-    protected function createNestedRelation(string $path, array $validation): void
-    {
-        try {
-            // Find the related export model
-            $relatedExportModel = null;
-            if ($validation['final_model']) {
-                $relatedExportModel = ExportModel::where('model', $validation['final_model'])->first();
-            }
-
-            // Determine if it's a collection based on the final segment
-            $segments = $validation['segments'];
-            $isCollection = false;
-            if (!empty($segments)) {
-                $lastSegment = end($segments);
-                $isCollection = $lastSegment['is_collection'] ?? false;
-            }
-
-            // Create the nested relation
-            ExportModelRelation::create([
-                'export_model_id' => $this->exportModel->id,
-                'relation' => $path,
-                'title' => $this->generateNestedTitle($path),
-                'is_column' => false,
-                'is_collection' => $isCollection,
-                'related_model_id' => $relatedExportModel?->id,
-            ]);
-
-            Log::info("Created missing nested relation on-the-fly: {$path}", [
-                'model' => $this->exportModel->model,
-                'final_model' => $validation['final_model'],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error("Failed to create nested relation: {$path}", [
-                'error' => $e->getMessage(),
-                'model' => $this->exportModel->model,
-            ]);
-        }
-    }
-
-    /**
-     * Generate a human-readable title for nested relations
-     */
-    protected function generateNestedTitle(string $path): string
-    {
-        $segments = explode('.', $path);
-        $titles = array_map(function ($segment) {
-            return Str::title(str_replace('_', ' ', $segment));
-        }, $segments);
-
-        return implode(' > ', $titles);
+        $this->relations->push($row);
     }
 
     /**

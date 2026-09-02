@@ -2,11 +2,13 @@
 
 namespace HexagonLabsLLC\LaravelExports\Models;
 
+use HexagonLabsLLC\LaravelExports\Services\SchemaSync;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 /**
  * @property string $id
@@ -108,6 +110,54 @@ class ExportLayout extends Model
         return $this->belongsTo(ExportModel::class, 'export_model_id');
     }
 
+    /**
+     * The layout's export model row. A model FQCN wins over the FK and is
+     * synced into the catalog on first reference per the schema_sync mode.
+     */
+    public function resolveExportModel(): ExportModel
+    {
+        if ($this->model) {
+            return app(SchemaSync::class)->ensureFresh($this->model);
+        }
+
+        return $this->exportModel
+            ?? throw new \InvalidArgumentException('Layout has neither an export model nor a model class');
+    }
+
+    /**
+     * Resolve a relation path to its catalog row, lazily syncing the model
+     * (and dotted paths) per the schema_sync mode. Column rows win over
+     * same-named relations; use a dotted path to force the relation.
+     */
+    public function resolveRelationRow(string $path): ExportModelRelation
+    {
+        $exportModel = $this->resolveExportModel();
+
+        $find = fn () => ExportModelRelation::where('export_model_id', $exportModel->id)
+            ->where('relation', $path)
+            ->orderByDesc('is_column')
+            ->first();
+
+        $row = $find();
+
+        if (!$row) {
+            $sync = app(SchemaSync::class);
+
+            if ($sync->canSync()) {
+                $sync->syncOnce($exportModel->model);
+                $row = $find();
+
+                if (!$row && Str::contains($path, '.')) {
+                    $row = $sync->syncPath($exportModel, $path) ?? $sync->syncColumnPath($exportModel, $path);
+                }
+            }
+        }
+
+        return $row ?? throw new \InvalidArgumentException(
+            "Relation '{$path}' is not registered for this layout's export model. Run export:import-models or create the ExportModelRelation first."
+        );
+    }
+
     public function filters(): HasMany
     {
         return $this->hasMany(ExportFilter::class, 'export_layout_id')
@@ -175,12 +225,7 @@ class ExportLayout extends Model
 
         if ($relation = $attributes['relation'] ?? null) {
             unset($attributes['relation']);
-            $attributes['export_model_relation_id'] ??= ExportModelRelation::where('export_model_id', $this->export_model_id)
-                ->where('relation', $relation)
-                ->value('id')
-                ?? throw new \InvalidArgumentException(
-                    "Relation '{$relation}' is not registered for this layout's export model. Run export:import-models or create the ExportModelRelation first."
-                );
+            $attributes['export_model_relation_id'] ??= $this->resolveRelationRow($relation)->id;
         }
 
         if (isset($attributes['position'])) {
