@@ -138,7 +138,7 @@ return response()->json([
 ]);
 ```
 
-Any format registered with `ExportFactory` can be queued. `csv` and `json` are written chunk by chunk to a temp file and then streamed to the disk, so memory stays flat; queued `json` is always a plain array of row objects. xlsx and custom handlers buffer the full result set in memory and call the handler's `export()`, with `$options` passed through:
+Any format registered with `ExportFactory` can be queued. `csv` and `json` are written chunk by chunk to a temp file and then streamed to the disk, so memory stays flat; queued `json` is always a plain array of row objects. xlsx and custom handlers buffer the full result set in memory and call the handler's `export()`, unless the handler implements `WritesChunksToFile`, in which case each chunk goes straight to its `writeChunksToFile($dataCallback, $path)`. `$options` are passed through either way:
 
 ```php
 $exportId = $service->queueExport($layout, 'xlsx', $requestData, ['sheet_by' => 'Region']);

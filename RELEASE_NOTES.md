@@ -1,3 +1,13 @@
+# v1.1.0
+
+## Added
+
+- **`WritesChunksToFile` handler interface.** Queued exports pass each chunk
+  straight to `writeChunksToFile($dataCallback, $path)` on handlers that
+  implement it, instead of buffering the full result set for `export()`. Lets
+  a streaming writer keep memory flat for large xlsx or custom-format exports.
+  Handlers that do not implement it behave exactly as before.
+
 # v1.0.0
 
 The first stable release. Consolidates everything since the published

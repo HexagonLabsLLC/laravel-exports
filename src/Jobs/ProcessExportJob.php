@@ -4,6 +4,7 @@ namespace HexagonLabsLLC\LaravelExports\Jobs;
 
 use HexagonLabsLLC\LaravelExports\Exports\ExportFactory;
 use HexagonLabsLLC\LaravelExports\Exports\Handlers\ExportHandler;
+use HexagonLabsLLC\LaravelExports\Exports\Handlers\WritesChunksToFile;
 use HexagonLabsLLC\LaravelExports\Models\ExportLayout;
 use HexagonLabsLLC\LaravelExports\Services\DynamicExportService;
 use Illuminate\Bus\Queueable;
@@ -215,6 +216,10 @@ class ProcessExportJob implements ShouldQueue
      */
     protected function writeWithHandler(ExportHandler $handler, DynamicExportService $service, ExportLayout $layout, string $tempPath, int $totalCount): int
     {
+        if ($handler instanceof WritesChunksToFile) {
+            return $this->writeChunksWithHandler($handler, $service, $layout, $tempPath, $totalCount);
+        }
+
         $rows = collect();
         $processedRows = 0;
 
@@ -241,6 +246,36 @@ class ProcessExportJob implements ShouldQueue
 
         if (file_put_contents($tempPath, $content) === false) {
             throw new \RuntimeException("Failed to create temp file: {$tempPath}");
+        }
+
+        return $processedRows;
+    }
+
+    /**
+     * Hand chunks straight to a handler that writes its own file, keeping
+     * memory flat instead of buffering the result set for export().
+     */
+    protected function writeChunksWithHandler(WritesChunksToFile $handler, DynamicExportService $service, ExportLayout $layout, string $tempPath, int $totalCount): int
+    {
+        $processedRows = 0;
+
+        $handler->writeChunksToFile(function (callable $writeChunk) use ($service, $layout, $totalCount, &$processedRows) {
+            $service->executeExportChunked(
+                $layout,
+                $this->requestData,
+                $this->chunkSize,
+                function ($chunk) use ($writeChunk, $totalCount, &$processedRows) {
+                    $writeChunk($chunk);
+
+                    $processedRows += $chunk->count();
+
+                    $this->reportProgress($processedRows, $totalCount);
+                }
+            );
+        }, $tempPath);
+
+        if (!is_file($tempPath)) {
+            throw new \RuntimeException("The {$this->format} handler did not write {$tempPath}.");
         }
 
         return $processedRows;
