@@ -2,6 +2,7 @@
 
 use HexagonLabsLLC\LaravelExports\Exports\ExportFactory;
 use HexagonLabsLLC\LaravelExports\Exports\Handlers\ExportHandler;
+use HexagonLabsLLC\LaravelExports\Exports\Handlers\WritesChunksToFile;
 use HexagonLabsLLC\LaravelExports\Jobs\ProcessExportJob;
 use HexagonLabsLLC\LaravelExports\Models\ExportLayout;
 use HexagonLabsLLC\LaravelExports\Models\ExportModel;
@@ -51,6 +52,35 @@ class QueuedTextHandler extends ExportHandler
     public function getMimeType(): string
     {
         return 'text/plain';
+    }
+}
+
+/**
+ * Writes each chunk as it arrives and records chunk sizes, to prove queued
+ * exports stream into handlers that opt in instead of buffering every row.
+ */
+class QueuedChunkFileHandler extends QueuedTextHandler implements WritesChunksToFile
+{
+    public static array $chunkSizes = [];
+
+    public function writeChunksToFile(callable $dataCallback, string $path): void
+    {
+        $handle = fopen($path, 'w');
+
+        $dataCallback(function (Collection $chunk) use ($handle) {
+            static::$chunkSizes[] = $chunk->count();
+
+            foreach ($chunk as $row) {
+                fwrite($handle, implode('|', $row)."\n");
+            }
+        });
+
+        fclose($handle);
+    }
+
+    public function export(Collection $data): mixed
+    {
+        throw new RuntimeException('Queued exports must not buffer rows for a chunk-writing handler.');
     }
 }
 
@@ -211,6 +241,23 @@ it('queues any format registered with the factory using the handler extension', 
         ->and($status['filename'])->toEndWith('.txt')
         ->and(Storage::disk('local')->get($status['path']))
         ->toBe("First Post\nSecond Post\nThird Post");
+});
+
+it('streams chunks into handlers that write their own file', function () {
+    ExportFactory::register('chunked', QueuedChunkFileHandler::class);
+    QueuedChunkFileHandler::$chunkSizes = [];
+
+    $exportId = (string)Str::uuid();
+
+    (new ProcessExportJob($exportId, $this->layout->id, 'chunked', [], [], 2))->handle();
+
+    $status = ProcessExportJob::getStatus($exportId);
+
+    expect($status['status'])->toBe('completed')
+        ->and($status['row_count'])->toBe(3)
+        ->and(QueuedChunkFileHandler::$chunkSizes)->toBe([2, 1])
+        ->and(Storage::disk('local')->get($status['path']))
+        ->toBe("First Post\nSecond Post\nThird Post\n");
 });
 
 it('fails queued exports when a handler returns something other than a string', function () {

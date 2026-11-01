@@ -43,7 +43,7 @@ $exportId = $service->queueExport(
 );
 ```
 
-xlsx and custom handlers buffer the full result set in memory and call the handler's `export()`, so csv stays the recommendation for very large exports; xlsx is fine for report-sized ones. The stored file's extension comes from the handler's `getExtension()`, so a custom `excel` format whose handler returns `xlsx` writes a `.xlsx` file.
+xlsx and custom handlers buffer the full result set in memory and call the handler's `export()`, so csv stays the recommendation for very large exports; xlsx is fine for report-sized ones. A handler that implements `WritesChunksToFile` skips the buffering: the job calls its `writeChunksToFile($dataCallback, $path)` with each chunk as it is read, so a streaming writer (for example OpenSpout for xlsx) keeps memory flat. The stored file's extension comes from the handler's `getExtension()`, so a custom `excel` format whose handler returns `xlsx` writes a `.xlsx` file.
 
 An unregistered format throws an `InvalidArgumentException` when the job runs ("Unsupported export format: pdf. Supported formats: csv, json, xlsx"), and `xlsx` without `phpoffice/phpspreadsheet` throws a `RuntimeException` with install instructions. Either way the export ends up `failed` with the message in `error`.
 

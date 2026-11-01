@@ -360,7 +360,8 @@ if (ProcessExportJob::isSuccessful($exportId)) {
 ```
 
 csv/json stream chunked with flat memory; xlsx and custom handlers buffer the
-full result set in memory (prefer csv for very large queued exports).
+full result set in memory (prefer csv for very large queued exports) unless the
+handler implements `WritesChunksToFile`, which receives each chunk as it is read.
 
 ## Common Gotchas
 
@@ -370,7 +371,7 @@ full result set in memory (prefer csv for very large queued exports).
 4. **value_type required**: Even for null operators, use `'string'`
 5. **import-models is optional**: default lazy schema sync registers models and paths on first reference; run `export:import-models` only to pre-populate picklists or when `schema_sync` is `manual`
 6. **Validate before shipping**: `php artisan export:validate` catches broken paths, operators, aggregators, and pivot configs; builder `save()` pre-validates automatically
-7. **Queued handler formats buffer in memory**: csv/json queue with chunked writers; xlsx and custom handlers build the full result set first
+7. **Queued handler formats buffer in memory**: csv/json queue with chunked writers; xlsx and custom handlers build the full result set first, unless the handler implements `WritesChunksToFile` (chunks stream straight to its file)
 
 ## Resources
 
